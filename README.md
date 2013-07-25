@@ -14,7 +14,7 @@ Safari and Opera have one or several issue that make JsPackage not fully compati
 ### Documentation ###
 
   * Website   : www.jspackage.net (in construction)
-  * Reference : wiki.jspackage.net
+  * Reference : http://wiki.jspackage.net
 
 ### Integration ###
 In the client side, just call the file as a javascript file
