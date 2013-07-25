@@ -11,6 +11,11 @@ JsPackage only uses standard javascript elements : it's compatible with all navi
 
 Safari and Opera have one or several issue that make JsPackage not fully compatible.
 
+### Documentation ###
+
+  * Website   : www.jspackage.net (in construction)
+  * Reference : wiki.jspackage.net
+
 ### Integration ###
 In the client side, just call the file as a javascript file
 
