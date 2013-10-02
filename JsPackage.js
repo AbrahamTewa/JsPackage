@@ -42,25 +42,76 @@ THE SOFTWARE.
 */
 
 /**
-* @typedef {Class} Class
+* @typedef {object} Namespace
 */
 
 /**
- * @namespace JsPackage
- */
+* @typedef {object} Package
+*/
+
+/**
+* @typedef {object} Class
+*/
+/**
+* @namespace
+* @name main
+**/
 (function (parameters) {
    "use strict";
 
    /**
-   * This object will be use to determine the accessibility of the different members of 
+   * This object will be use to determine the accessibility of the different members of an environment.
    * @typedef {object} DeclarationProperty
-   * @memberof JsPackage
+   * @memberof main
+   * @property {boolean} addPrivate        - Determine weither (true) or not (false) private members must be added to the environment
+   * @property {boolean} addProtected      - Determine weither (true) or not (false) protected members must be added to the environment
+   * @property {boolean} addPublic         - Determine weither (true) or not (false) public members must be added to the environment
+   * @property {main.Environment} env      - Environment in wich members will be added
+   * @property {boolean} include           - Determine weither (true) or not (false) the current DeclarationProperty must be used
+   * @property {boolean} overridePrivate   - Determine weither (true) or not (false) private members must be overrided in the environment
+   * @property {boolean} overrideProtected - Determine weither (true) or not (false) protected members must be overrided in the environment
+   * @property {boolean} overridePublic    - Determine weither (true) or not (false) public members must be overrided in the environment
    */
 
-   var globalThis, globalName, debugMode, defaultNamespaces, onerror, Class, Constants, Core;
+   /**
+   Environment of a class or package. An environment will contains private, public or protected attribute, according to a
+   {@link main.DeclarationProperty}
+   * @typedef {object} Environment
+   * @memberof main
+   * @property {string} toString           - Return the string representation of the environment. The string representation will indicate if we are in a public or private environment.
+   * @property {object} $                  - Contains informations and methods to manipulate the environment.
+   */
 
+   /**
+   * Protected environment of classes. This environment contains all public and protected static properties of the class.
+   * @typedef ClassProtectedEnv
+   * @type {main.Environment}
+   * @memberof main
+   */
+   var globalThis, globalName, debugMode, defaultNamespaces, onerror, Class, Constants, Core;
+   var Definition, Descriptor, Errors, Interface, Namespace, Package, jsObject, publicEnv, Version;
+   var version;
+
+   /**
+   * Context in wich JsPackage will be added. This is given in parameter when the file is called.
+   * By default, this is the "window" object in browser, howether, "global" for Node.js environment.
+   * @name globalThis
+   * @variable
+   * @type object
+   * @default this.window === undefined ? global : this
+   * @memberof main
+   */
    globalThis        = parameters.parent;
-   globalName        = '' + parameters.name;
+
+   /**
+   * Name of JsPackage in the context (see {@link main.globalThis}).
+   * @variable
+   * @name globalName
+   * @type string
+   * @default 'JsPackage'
+   * @memberof main
+   */
+   globalName        = '' + parameters.name; // The given name must be a string
    debugMode         = parameters.debug === undefined ? false : !!parameters.debug;
    onerror           = parameters.onerror;
 
@@ -70,7 +121,7 @@ THE SOFTWARE.
 
    /**
    * An authorization list is used to list all objects that can access the currect package/class/instance private/protected environment.
-   * @typedef {array} JsPackage.AuthorizationList
+   * @typedef {array} main.AuthorizationList
    */
 
    /*----------------------------------------------------------------------------------------------
@@ -78,147 +129,148 @@ THE SOFTWARE.
    |-----------------------------------------------------------------------------------------------
    | Description
    |
-   |    Ce package permet la création de classe et de leurs instances.
+   |    Ce package permet la crï¿½ation de classe et de leurs instances.
    |
    |-----------------------------------------------------------------------------------------------
-   | Création d'une classe
+   | Crï¿½ation d'une classe
    |
-   |    La création d'une classe est faite par la fonction "newClass". Cette fonction reçoit entre
-   | paramètre la définition de la classe. Elle va convertir la définition en définition standard
-   | et ensuite faire appel à "createClass", en lui fournissant la définition standard ouverte
-   | (cad, l'objet "me" de la définition).
-   |    "createClass" va alors créer l'objet "me" de la classe, ainsi que les différents environ-
+   |    La crï¿½ation d'une classe est faite par la fonction "newClass". Cette fonction reï¿½oit entre
+   | paramï¿½tre la dï¿½finition de la classe. Elle va convertir la dï¿½finition en dï¿½finition standard
+   | et ensuite faire appel ï¿½ "createClass", en lui fournissant la dï¿½finition standard ouverte
+   | (cad, l'objet "me" de la dï¿½finition).
+   |    "createClass" va alors crï¿½er l'objet "me" de la classe, ainsi que les diffï¿½rents environ-
    | nements de la classe :
    |        . publicEnv
    |        . thisEnv
    |        . selfEnv
    |        . superEnv
    |
-   | Pour la description de ces différents environnements, voir la section "Description des
+   | Pour la description de ces diffï¿½rents environnements, voir la section "Description des
    | environnements" plus loin.
    |
-   | Pour chacun de ces environnements, il va créer des variables listants les propriétés de
-   | visibilité des attributs et méthodes. On va à chaque fois préciser si l'on peut ajouter les
-   | attributs/méthodes publiques, privés et protégés, et si on peut les surcharger ou non.
-   | Ces objets possède aussi une propriété "include", valorisé initialement à "true". Cet
-   | attribut permettra de filtrer par la suite les obejts "properties" à traiter.
+   | Pour chacun de ces environnements, il va crï¿½er des variables listants les propriï¿½tï¿½s de
+   | visibilitï¿½ des attributs et mï¿½thodes. On va ï¿½ chaque fois prï¿½ciser si l'on peut ajouter les
+   | attributs/mï¿½thodes publiques, privï¿½s et protï¿½gï¿½s, et si on peut les surcharger ou non.
+   | Ces objets possï¿½de aussi une propriï¿½tï¿½ "include", valorisï¿½ initialement ï¿½ "true". Cet
+   | attribut permettra de filtrer par la suite les obejts "properties" ï¿½ traiter.
    | Ces variables sont respectivemenets :
    |        . publicProperties
    |        . thisProperties
    |        . selfProperties
    |        . superProperties
    |
-   | Ces 4 objets vont être enregistrés dans un tableau : listProperties.
+   | Ces 4 objets vont ï¿½tre enregistrï¿½s dans un tableau : listProperties.
    |
-   | On va ensuite créer la variable "levels". Il s'agira d'un tableau simple dont le seul élément
-   | à l'initialisation sera "me". Le rôle de level sera discuté plus loin.
+   | On va ensuite crï¿½er la variable "levels". Il s'agira d'un tableau simple dont le seul ï¿½lï¿½ment
+   | ï¿½ l'initialisation sera "me". Le rï¿½le de level sera discutï¿½ plus loin.
    |
-   | On va vérifier ensuite si la classe hérite des propriétés d'une autre classe. Si oui, alors
-   | on va appeler la méthode "extendClass" en lui fournissant la classe étendue, "listProperties"
+   | On va vï¿½rifier ensuite si la classe hï¿½rite des propriï¿½tï¿½s d'une autre classe. Si oui, alors
+   | on va appeler la mï¿½thode "extendClass" en lui fournissant la classe ï¿½tendue, "listProperties"
    | et "levels".
    |
-   | "extendClass" est une fonction qui ressemble fortement à "createClass". Son rôle est cependant
-   | tout autre. Elle va commencer par créer l'objet "me" de la classe fournie en paramètre.
-   | Elle va créer de la même manière les variables publicProperties, thisProperties,
-   | selfProperties et superProperties correspondant à ces différents environnements. Cette fois
-   | cependant, ces objets vont être ajoutés à "listProperties" reçu en paramètre. Leurs attributs
-   | "include" est valorisé à ce moment là à "true".
-   | De la même manière que "createClass", on va vérifier si la classe hérite d'une autre classe.
-   | si c'est le cas, on appelera "extendClass" avec la classe héritée, "listProperties" et
+   | "extendClass" est une fonction qui ressemble fortement ï¿½ "createClass". Son rï¿½le est cependant
+   | tout autre. Elle va commencer par crï¿½er l'objet "me" de la classe fournie en paramï¿½tre.
+   | Elle va crï¿½er de la mï¿½me maniï¿½re les variables publicProperties, thisProperties,
+   | selfProperties et superProperties correspondant ï¿½ ces diffï¿½rents environnements. Cette fois
+   | cependant, ces objets vont ï¿½tre ajoutï¿½s ï¿½ "listProperties" reï¿½u en paramï¿½tre. Leurs attributs
+   | "include" est valorisï¿½ ï¿½ ce moment lï¿½ ï¿½ "true".
+   | De la mï¿½me maniï¿½re que "createClass", on va vï¿½rifier si la classe hï¿½rite d'une autre classe.
+   | si c'est le cas, on appelera "extendClass" avec la classe hï¿½ritï¿½e, "listProperties" et
    | "levels".
-   | Si ce n'est pas le cas, on va alors s'occuper de déclarer les propriétés à notre classe.
-   | héritante.
-   | On va pour celà appeler la fonction "Core.declare", à laquelle on va fournir pour chaque
-   | propriété de la classe héritante, son nom et sa description. "Core.declare" recevera aussi
-   | "listProperties" et le "thisEnv" de la propriété.
-   | "Core.declare" va alors parcourir chaque objets de "listProperties" et déterminer s'il faut
-   | ou non y ajouter la propriété passée en paramètre.
+   | Si ce n'est pas le cas, on va alors s'occuper de dï¿½clarer les propriï¿½tï¿½s ï¿½ notre classe.
+   | hï¿½ritante.
+   | On va pour celï¿½ appeler la fonction "Core.declare", ï¿½ laquelle on va fournir pour chaque
+   | propriï¿½tï¿½ de la classe hï¿½ritante, son nom et sa description. "Core.declare" recevera aussi
+   | "listProperties" et le "thisEnv" de la propriï¿½tï¿½.
+   | "Core.declare" va alors parcourir chaque objets de "listProperties" et dï¿½terminer s'il faut
+   | ou non y ajouter la propriï¿½tï¿½ passï¿½e en paramï¿½tre.
    | Exemple :
-   |   Si la propriété est privée et que l'élement 0 de "listProperties" indique de ne pas
-   | ajouter les objets privés (addPrivate = false), alors on ajoutera pas la propriété à
-   | l'environnement associé.
+   |   Si la propriï¿½tï¿½ est privï¿½e et que l'ï¿½lement 0 de "listProperties" indique de ne pas
+   | ajouter les objets privï¿½s (addPrivate = false), alors on ajoutera pas la propriï¿½tï¿½ ï¿½
+   | l'environnement associï¿½.
    |
-   | A noter qu'en réalité, on ajoute un "alias" vers la propriété (qui elle n'existe que sur un
+   | A noter qu'en rï¿½alitï¿½, on ajoute un "alias" vers la propriï¿½tï¿½ (qui elle n'existe que sur un
    | seul thisEnv).
    |
    |---------------------------------------------------------------------------------------------*/
    /**
     * The namespace Class contains all the function for class creation.
-    * @namespace Class
-    * @memberof JsPackage
+    * @namespace
+    * @name Class
+    * @memberof main
     * @access private
     */
    Class                 = (function () {
-         
+
       /**
       * <p>Create a new class from a definition. The definition have been validated.</p>
-      * First, the {@link JsPackage.Class.ClassMe|me} environment of the class will be created. Then, we create the extended environment
-      * using the {@link JsPackage.Class.extendedClass}.
+      * First, the {@link main.Class.ClassMe|me} environment of the class will be created. Then, we create the extended environment
+      * using the {@link main.Class.extendedClass}.
       * @function createClass
       * @returns {Class} Newly created class
-      * @memberof JsPackage.Class
+      * @memberof main.Class
       * @access private
       * @param {DefinitionMe} definition Definition of the function. The definition has been validated at this point.
-      * @property {JsPackage.Class.ClassMe} me "Me" of the class.
-      * @property {JsPackage.DeclarationProperty[]} listProperties List of all declaration properties of the class and the child classes.
+      * @property {main.Class.ClassMe} me "Me" of the class.
+      * @property {main.DeclarationProperty[]} listProperties List of all declaration properties of the class and the child classes.
       * @property {Descriptor} publicInitialization This variable is used to determine class can be instanciable in public or not. It's determine by the visibility of the initialization function of the definition.
-      * @property {JsPackage.DeclarationProperty} privateProperties Declaration property of the private environment of the class
-      * @property {JsPackage.DeclarationProperty} protectedProperties Declaration property of the protected environment of the class
-      * @property {JsPackage.DeclarationProperty} publicProperties Declaration property of the public environment of the class
-      * @property {JsPackage.DeclarationProperty} selfProperties Declaration property of the self environment of the class
+      * @property {main.DeclarationProperty} privateProperties Declaration property of the private environment of the class
+      * @property {main.DeclarationProperty} protectedProperties Declaration property of the protected environment of the class
+      * @property {main.DeclarationProperty} publicProperties Declaration property of the public environment of the class
+      * @property {main.DeclarationProperty} selfProperties Declaration property of the self environment of the class
       */
       var createClass             = function (definition) {
 
          var env, id, listProperties, listAncestry, me, meExtends, name, newFct, protectedProperties, publicInitialization, publicProperties, selfProperties, thisProperties, openExtend;
 
          /**
-         * {@link JsPackage.me|me} object of classes
+         * {@link main.me|me} object of classes
          * @class ClassMe
-         * @memberof JsPackage
+         * @memberof main.Class
          * @access public
          */
-         me             = { 
+         me             = {
                             /**
                             * List all the authorized {@link Class|classes} and {@link Package|packages} that can access to the private or protected environment of the class or his instance.
-                            * @member {JsPackage.AuthorizationList} authorizationList
-                            * @memberof JsPackage.Class.ClassMe
+                            * @member {main.AuthorizationList} authorizationList
+                            * @memberof main.Class.ClassMe
                             */
                             authorizationList    : {}
                             /**
                             * Opened definition of the class
-                            * @member {DefinitionMe} Definition
-                            * @memberof JsPackage.Class.ClassMe
+                            * @member {DefinitionMe} definition
+                            * @memberof main.Class.ClassMe
                             */
                           , definition           : definition
                             /**
                             * Determine if the parent is enumerable (true) of not (false)
                             * @member {boolean} enumerable
-                            * @memberof JsPackage.Class.ClassMe
+                            * @memberof main.Class.ClassMe
                             */
                           , enumerable           : definition.enumerable
                             /**
                             * Class extended by the current class.
                             * @member {Class} extends
-                            * @memberof JsPackage.Class.ClassMe
+                            * @memberof main.Class.ClassMe
                             */
                           , extends              : definition.extends
                             /**
                             * Initialization function called after instanciation
                             * @function initialization
-                            * @memberof JsPackage.Class.ClassMe
+                            * @memberof main.Class.ClassMe
                             */
                           , initialization       : definition.initialization
                             /**
                             * List of the interfaces implemented by the class
                             * @member {Class[]} implements
-                            * @memberof JsPackage.Class.ClassMe
+                            * @memberof main.Class.ClassMe
                             */
                           , implements           : definition.implements
                             /**
                             * <p>Determine weither or not the class is an abstract class.</p>
                             * <p>This value depends on the $.abstract field of the definition of the class</p>
                             * @function isAbstract
-                            * @memberof JsPackage.Class.ClassMe
+                            * @memberof main.Class.ClassMe
                             * @returns {boolean} true: the class is an abstract class, false otherwise
                             */
                           , isAbstract           : definition.isAbstract
@@ -226,100 +278,100 @@ THE SOFTWARE.
                             * <p>Determine weither or not the class is an final class.</p>
                             * <p>This value depends on the $.final field of the definition of the class</p>
                             * @function isFinal
-                            * @memberof JsPackage.Class.ClassMe
+                            * @memberof main.Class.ClassMe
                             * @returns {boolean} true: the class is final, false otherwise
                             */
                           , isFinal              : definition.isFinal
                             /**
                             * @member {Class[]} levels
-                            * @memberof JsPackage.Class.ClassMe
+                            * @memberof main.Class.ClassMe
                             */
                           , levels               : []
                             /**
                             * Name of the classs. All "Me" object must have this property
                             * @member {string} name
-                            * @memberof JsPackage.Class.ClassMe
+                            * @memberof main.Class.ClassMe
                             */
                           , name                 : definition.name
                             /**
                             * Parent of the class. All "Me" object must have this property
                             * @member {NamespaceLike} Parent
-                            * @memberof JsPackage.Class.ClassMe
+                            * @memberof main.Class.ClassMe
                             */
                           , parent         : definition.parent
                             /**
                             * Name of the class. This property is called by the get function {@link Class.name} in private environment
                             * @member {string} privateName
-                            * @memberof JsPackage.Class.ClassMe
+                            * @memberof main.Class.ClassMe
                             */
                           , privateName    : undefined
                             /**
                             * Parent of the class. This property is called by the get function {@link Class.parent} in private environment
                             * @member {string} privateParent
-                            * @memberof JsPackage.Class.ClassMe
+                            * @memberof main.Class.ClassMe
                             */
                           , privateParent  : undefined
                             /**
                             * Protected environment of the class
                             * @member {ClassProtectedEnv} protectedEnv
-                            * @memberof JsPackage.Class.ClassMe
+                            * @memberof main.Class.ClassMe
                             */
                           , protectedEnv   : {}
                             /**
                             * This function will be use as a false prototype of the class : Instance will be created with this function, allowing the use of "instanceof" standard function.
                             * @member {function} prototype
-                            * @memberof JsPackage.Class.ClassMe
+                            * @memberof main.Class.ClassMe
                             */
                           , prototype      : function() {}
                             /**
                             * Name of the class. This property is called by the get function {@link Class.name} in public environment
                             * @member {string} publicName
-                            * @memberof JsPackage.Class.ClassMe
+                            * @memberof main.Class.ClassMe
                             */
                           , publicName     : undefined
                             /**
                             * Parent of the class. This property is called by the get function {@link Class.parent} in public environment
                             * @member {NamespaceLike} publicParent
-                            * @memberof JsPackage.Class.ClassMe
+                            * @memberof main.Class.ClassMe
                             */
                           , publicParent   : undefined
                             /**
                             * Self environment of the class.
                             * @member {ClassSelfEnv} selfEnv
-                            * @memberof JsPackage.Class.ClassMe
+                            * @memberof main.Class.ClassMe
                             */
                           , selfEnv        : {}
                             /**
                             * Super environment of the class
                             * @member {ClassSuperEnv} superEnv
-                            * @memberof JsPackage.Class.ClassMe
+                            * @memberof main.Class.ClassMe
                             */
                           , superEnv       : undefined
                             /**
                             * toString function used to represent class.
                             * @function toString
-                            * @memberof JsPackage.Class.ClassMe
+                            * @memberof main.Class.ClassMe
                             * @returns {string} String representation of the class
                             */
                           , toString       : function() { return 'Class : Me'; }
                             /**
                             * Constant representing the class.
                             * @member {string} type
-                            * @memberof JsPackage.Class.ClassMe
+                            * @memberof main.Class.ClassMe
                             */
                           , type           : Constants.CLASS};
 
          /**
          * ID of the class
          * @member {number} id
-         * @memberof JsPackage.Class.ClassMe
+         * @memberof main.Class.ClassMe
          */
          me.id               = Core.getNewId(me);
 
          /**
          * Determine if the current class has instanciate the given parameter object.
          * @func classOf
-         * @memberof JsPackage.Class.ClassMe
+         * @memberof main.Class.ClassMe
          * @param {object} object to test
          * @returns {boolean} true: the class is the one who instanciate the object. False otherwise
          */
@@ -327,7 +379,7 @@ THE SOFTWARE.
          /**
          * Determine if the current class is a parent of the object
          * @func parentOf
-         * @memberof JsPackage.Class.ClassMe
+         * @memberof main.Class.ClassMe
          * @param {object} object to test
          * @returns {boolean} true: the class is parent of the instance, false otherwise
          */
@@ -337,18 +389,18 @@ THE SOFTWARE.
           <p>This function must exist because at the creation of the class, the parent is not yet fixed :
           the parent is fixed once it is sealed. Before that, it's not even sure that the class will be a member of the parent object</p>
          * @func getPrivateParent
-         * @memberof JsPackage.Class.ClassMe
+         * @memberof main.Class.ClassMe
          * @param {object} object to test
          * @returns {NamespaceLike} parent of the class. undefined if their is no parent.
          */
          me.getPrivateParent = Core.fct.getValue(me, 'privateParent');
-         
+
          /**
           <p>Return the parent of the class. This function will be use as a get property in the public environnment.</p>
           <p>This function must exist because at the creation of the class, the parent is not yet fixed :
           the parent is fixed once it is sealed. Before that, it's not even sure that the class will be a member of the parent object</p>
          * @func getPublicParent
-         * @memberof JsPackage.Class.ClassMe
+         * @memberof main.Class.ClassMe
          * @param {object} object to test
          * @returns {NamespaceLike} parent of the class. undefined if their is no parent.
          */
@@ -358,7 +410,7 @@ THE SOFTWARE.
           <p>This function must exist because at the creation of the class, the parent is not yet fixed :
           the parent is fixed once it is sealed. Before that, it's not even sure that the class will be a member of the parent object</p>
          * @func getPrivateName
-         * @memberof JsPackage.Class.ClassMe
+         * @memberof main.Class.ClassMe
          * @param {object} object to test
          * @returns {string} the class name in parent object. undefined if their is no parents.
          */
@@ -368,7 +420,7 @@ THE SOFTWARE.
           <p>This function must exist because at the creation of the class, the parent is not yet fixed :
           the parent is fixed once it is sealed. Before that, it's not even sure that the class will be a member of the parent object</p>
          * @func getPublicName
-         * @memberof JsPackage.Class.ClassMe
+         * @memberof main.Class.ClassMe
          * @param {object} object to test
          * @returns {string} the class name in parent object. undefined if their is no parents.
          */
@@ -396,31 +448,31 @@ THE SOFTWARE.
          /**
          * Initialization function of the class
          * @member {function} new
-         * @memberof JsPackage.Class.ClassMe
+         * @memberof main.Class.ClassMe
          */
          me.new                      = newFct;
          /**
          * Public environment of the class
-         * @member {ClassPublicEnvironment} publicEnv
-         * @memberof JsPackage.Class.ClassMe
+         * @member {Class} publicEnv
+         * @memberof main.Class.ClassMe
          */
          me.publicEnv                = publicInitialization;
          /**
          * Private environment of the class
          * @member {ClassPrivateEnvironment} thisEnv
-         * @memberof JsPackage.Class.ClassMe
+         * @memberof main.Class.ClassMe
          */
          me.thisEnv                  = fct.getThisEnv(me);
          /**
-         * Return a copy of the ClassMe.{@link JsPackage.Class.ClassMe.ancestry|ancestry}.
+         * Return a copy of the ClassMe.{@link main.Class.ClassMe.ancestry|ancestry}.
          * @member {Class[]} getAncestry
-         * @memberof JsPackage.Class.ClassMe
+         * @memberof main.Class.ClassMe
          */
          me.getAncestry              = fct.getAncestry(me);
          /**
          * Public environment of the class
          * @member {Class} Class
-         * @memberof JsPackage.Class.ClassMe
+         * @memberof main.Class.ClassMe
          */
          me.Class                    = me.publicEnv;
 
@@ -429,7 +481,7 @@ THE SOFTWARE.
 
          me.publicEnv.prototype      = me.prototype.prototype;
 
-         // Propriétés des environnements
+         // Properties of the environment
          protectedProperties = { env                  : me.protectedEnv
                                , addPrivate           : false
                                , addProtected         : true
@@ -480,7 +532,7 @@ THE SOFTWARE.
               <li>copying this list</li>
               <li>adding parent class</li></ul>
             * @member {ClassAncestryList} ancestry
-            * @memberof JsPackage.Class.ClassMe
+            * @memberof main.Class.ClassMe
             */
             me.ancestry = { me           : openExtend.ancestry.me.slice(0)
                           , publicEnv    : openExtend.ancestry.publicEnv.slice(0)};
@@ -489,6 +541,10 @@ THE SOFTWARE.
             me.ancestry.publicEnv.unshift(openExtend.Class);
 
             me.superEnv  = openExtend.protectedEnv;
+            /** ID of topest ancester of the Class.
+            * @member {number} rootId
+            * @memberof main.Class.ClassMe
+            */
             me.rootId    = openExtend.rootId;
          }
          else {
@@ -501,6 +557,7 @@ THE SOFTWARE.
          thisProperties.include    = false;
          selfProperties.addPrivate = true;
 
+         // Adding all static members of the definition in the class
          for(name in me.definition.staticEnv) {
             Core.declare ( definition.staticEnv[name] // descriptor
                          , name                       // name
@@ -509,30 +566,122 @@ THE SOFTWARE.
                          , true);                     // isStatic
          }
 
-         me.thisEnv.$       = { _patteBlanche      : Core.fct._patteBlanche(me)
+         /**
+         * @class
+         * @name Class$
+         * @memberof Class
+         */
+         me.thisEnv.$       = { /** Internal function used by JsPackage to determine weither or not the object has been created by JsPackage.
+                                  * @method _patteBlanche
+                                  * @memberof Class$
+                                */
+                                _patteBlanche      : Core.fct._patteBlanche(me)
+                                /** This attribute return the current class, always with the highest visibility level accessible.
+                                  * @member {Class} Class
+                                  * @memberof Class$
+                                  */
                               , Class              : me.thisEnv
+                                /** @see {@link main.Class.ClassMe|classOf}
+                                  * @member {Class} classOf
+                                  * @memberof Class$
+                                  */
                               , classOf            : me.classOf
-                              , contextClass       : me.publicEnv
+                                /** Definition of the class.
+                                  * @see {@link main.Class.ClassMe|definition}
+                                  * @member {Definition} definition
+                                  * @memberof Class$
+                                  */
                               , definition         : me.definition.privateEnv
+                                /** Extended Class
+                                  * @see {@link main.Class.ClassMe|extends}
+                                  * @member {Class} extends
+                                  * @memberof Class$
+                                  */
                               , extends            : me.extends
+                                /** Id of the class
+                                  * @see {@link main.Class.ClassMe.id|ClassMe.id}
+                                  * @member {number} id
+                                  * @memberof Class$
+                                  */
                               , id                 : me.id
+                                /** Interfaces implemented by the class. Return the value of {@link main.Class.ClassMe.implements}.
+                                  * @see {@link main.Class.ClassMe.implements|ClassMe.implements}
+                                  * @member {Interface[]} implements
+                                  * @memberof Class$
+                                  * @todo This must be a get function that return a copy of the list
+                                  */
                               , implements         : me.implements
+                                /** Determine if the class is an abstract class. Return the value of {@link main.Class.ClassMe.isAbstract}.
+                                  * @method isAbstract
+                                  * @returns {boolean} true: The class is an abstract class<br>false: The class is not an abstract class
+                                  * @memberof Class$
+                                  */
                               , isAbstract         : fct.isAbstract(me)
+                                /** Determine if the class is an final class. Return the value of {@link main.Class.ClassMe.isFinal}.
+                                  * @method isFinal
+                                  * @returns {boolean} true: The class is final<br>false: The class is not final
+                                  * @memberof Class$
+                                  */
                               , isFinal            : fct.isFinal(me)
+                                /** Return the list of ancestry classes of the current class
+                                  * @method getAncestry
+                                  * @returns {Class[]}
+                                  * @memberof Class$
+                                  */
                               , getAncestry        : me.getAncestry
+                                /** Function that create a new instance. In public/protected environment, this function is usable only if the class is publicly instanciable.
+                                  * @see {@link main.Class.ClassMe.new}
+                                  * @method new
+                                  * @returns {Instance}
+                                  * @memberof Class$
+                                  */
                               , new                : me.new
+                                /** Determine if the class is a parent class of the Class.
+                                  * @see {@link main.Class.ClassMe.parentOf|ClassMe.parentOf}
+                                  * @method parentOf
+                                  * @param {Class} Class to test
+                                  * @returns {boolean} true: The class is a parent<br>false: The class is not a parent
+                                  * @memberof Class$
+                                  */
                               , parentOf           : me.parentOf
+                                /** Public environment of the class
+                                  * @see {@link main.Class.ClassMe.publicEnv|ClassMe.publicEnv}
+                                  * @member {Class} Public
+                                  * @memberof Class$
+                                  */
                               , Public             : me.publicEnv
+                                /** Self environment of the class
+                                  * @see {@link main.Class.ClassMe.selfEnv|ClassMe.selfEnv}
+                                  * @member {Class} Self
+                                  * @memberof Class$
+                                  * @access Private
+                                  */
                               , Self               : me.selfEnv
+                                /** Super environment of the class
+                                  * @see {@link main.Class.ClassMe.Super|ClassMe.Super}
+                                  * @member {Class} Super
+                                  * @memberof Class$
+                                  * @access Protected
+                                  */
                               , Super              : me.superEnv
                               , this               : true
+                                /** toString function of the class
+                                  * @see {@link main.Class.ClassMe.toString|ClassMe.toString}
+                                  * @method {Class} toString
+                                  * @returns {string} Representation of the class. The representation depends on the current visibility.
+                                  * @memberof Class$
+                                  */
                               , toString           : fct.ClassToString(me.thisEnv, 'private')
+                              /** Type of the object. Value:CLASS
+                                  * @see {@link main.Class.ClassMe.type|ClassMe.type}
+                                  * @constant {string} type
+                                  * @memberof Class$
+                                  */
                               , type               : me.type};
 
          me.protectedEnv.$  = { _patteBlanche      : Core.fct._patteBlanche(me)
                               , Class              : me.Class
                               , classOf            : me.classOf
-                              , contextClass       : me.publicEnv
                               , definition         : me.definition.publicEnv
                               , extends            : me.extends
                               , id                 : me.id
@@ -568,7 +717,6 @@ THE SOFTWARE.
          me.selfEnv.$       = { _patteBlanche      : Core.fct._patteBlanche(me)
                               , Class              : me.thisEnv
                               , classOf            : me.classOf
-                              , contextClass       : me.publicEnv
                               , definition         : me.definition.publicEnv
                               , extends            : me.extends
                               , id                 : me.id
@@ -584,11 +732,32 @@ THE SOFTWARE.
                               , toString           : fct.ClassToString(me.selfEnv, 'self')
                               , Self               : true};
 
+        /** Parent of the class.
+          <p>Once the class created, the parent of the class is not yet fixed : if the parent is a package, then the
+          package must be sealed. Until the package is unsealed, the parent will be "undefined" : this prevent
+          any class to declare itself into a package.</p>
+          <p>Each environment doesn't see the same package environment : {@link main.Class.ClassMe.thisEnv|thisEnv}
+          and {@link main.Class.ClassMe.selfEnv|selfEnv} see the private environment of the package, other environments
+          seeing the public environment.</p>
+          * @see {@link memberof Class$.name}
+          * @see {@link main.Class.ClassMe.getPrivateParent|ClassMe.getPrivateParent}
+          * @see {@link main.Class.ClassMe.getPublicParent|ClassMe.getPublicParent}
+          * @member {NamespaceLike} parent
+          * @memberof Class$
+          */
          jsObject.defineProperty(me.thisEnv.$     , 'parent', { get : me.getPrivateParent });
          jsObject.defineProperty(me.selfEnv.$     , 'parent', { get : me.getPrivateParent });
          jsObject.defineProperty(me.publicEnv.$   , 'parent', { get : me.getPublicParent  });
          jsObject.defineProperty(me.protectedEnv.$, 'parent', { get : me.getPublicParent  });
 
+        /** <p>Name of the class.</p>
+        <p>Follow the same rules than {@link memberof Class$.parent}.
+          * @see {@link memberof Class$.parent}
+          * @see {@link main.Class.ClassMe.getPrivateName|ClassMe.getPrivateName}
+          * @see {@link main.Class.ClassMe.getPublicName|ClassMe.getPublicName}
+          * @member {string} name
+          * @memberof Class$
+          */
          jsObject.defineProperty(me.thisEnv.$     , 'name'  , { get : me.getPrivateName   });
          jsObject.defineProperty(me.selfEnv.$     , 'name'  , { get : me.getPrivateName   });
          jsObject.defineProperty(me.publicEnv.$   , 'name'  , { get : me.getPublicName    });
@@ -610,12 +779,13 @@ THE SOFTWARE.
          if (me.name !== undefined)
             Core.declareToParent(me);
 
-/*         if (me.protectedEnv !== undefined)
-            me.protectedEnv.$.toString = fct.ClassToString(me, 'protected');*/
-
-         // On scèlle l'ensemble des environnements
-
+         // In debug mode, we add a object in all environment that give access to public, private, self and super environment.
          if (debugMode) {
+
+           /** Contains all the environments (public, private, self and super) of the class. This member is accessible only in debug mode.
+             * @member {object} debug
+             * @memberof Class$
+             */
             me.thisEnv.$.debug   = { publicEnv  : me.publicEnv
                                    , privateEnv : me.thisEnv
                                    , selfEnv    : me.selfEnv
@@ -625,6 +795,7 @@ THE SOFTWARE.
             me.selfEnv.$.debug   = me.thisEnv.$.debug;
          }
 
+         // Sealing all the environments
          for(env in listProperties) {
             Core.sealEnv(listProperties[env].env);
          }
@@ -637,7 +808,7 @@ THE SOFTWARE.
       * Create a classe using a Definition object receive in parameter.
       * The definition must be an open definition.
       * @func createObject
-      * @memberof JsPackage.Class
+      * @memberof main.Class
       * @access private
       * @param {Class} cls Class use to create the object
       * @returns {Instance} Instance created
@@ -648,19 +819,79 @@ THE SOFTWARE.
 
          classMe         = Core.getObject(cls.id);
 
-         // Création de l'objet Me
-         me              = { Class          : classMe.publicEnv
+         /**
+         * {@link main.me|me} object of classes
+         * @class InstanceMe
+         * @memberof main.Class
+         * @access private
+         */
+         me              = { /** Class of the instance
+                               * @member {Class} Class
+                               * @memberof main.Class.InstanceMe
+                               */
+                             Class          : classMe.publicEnv
+                             /** classMe of the class instance
+                               * @member {main.Class.ClassMe} classMe
+                               * @memberof main.Class.InstanceMe
+                               */
                            , classMe        : classMe
+                             /** Definition of the class.
+                               * @see {@link main.Class.ClassMe.definition|ClassMe.definition}
+                               * @member {DefinitionMe} definition
+                               * @memberof main.Class.InstanceMe
+                               */
                            , definition     : classMe.definition
-                           , extends        : classMe.definition.extends
+                             /** Class extended by the class
+                               * @see {@link main.Class.ClassMe.definition|ClassMe.definition}
+                               * @member {Class} extends
+                               * @memberof main.Class.InstanceMe
+                               */
+                           , extends        : classMe.extends
+                             /** Initialization function of the class
+                               * @see {@link main.Class.ClassMe.initialization|ClassMe.initialization}
+                               * @member {function} initialization
+                               * @memberof main.Class.InstanceMe
+                               */
                            , initialization : classMe.initialization
+                             /**
+                               * @member {array} levels
+                               * @memberof main.Class.InstanceMe
+                               */
                            , levels         : []
+                             /** ClassMe of the extended class
+                               * @member {ClassMe} meExtends
+                               * @memberof main.Class.InstanceMe
+                               */
                            , meExtends      : classMe.definition.extends !== undefined ? classMe.definition.extends.$._open(Core.beacon) : undefined
+                             /** Parent of the class. This is the value accessible from private environment.
+                               * @member {NamespaceLike} privateParent
+                               * @memberof main.Class.InstanceMe
+                               */
                            , privateParent  : classMe.privateParent
+                             /** Parent of the class. This is the value accessible from public environment.
+                               * @member {NamespaceLike} publicParent
+                               * @memberof main.Class.InstanceMe
+                               */
                            , publicParent   : classMe.publicParent
+                             /** Protected environment of the instance
+                               * @member {InstanceProtectedEnvironment} protectedEnv
+                               * @memberof main.Class.InstanceMe
+                               */
                            , protectedEnv   : {}
+                             /** Public environment of the instance
+                               * @member {Instance} protectedEnv
+                               * @memberof main.Class.InstanceMe
+                               */
                            , publicEnv      : new classMe.prototype()
+                             /** Self environment of the instance
+                               * @member {InstanceProtectedEnvironment} selfEnv
+                               * @memberof main.Class.InstanceMe
+                               */
                            , selfEnv        : {}
+                             /** String representing the type of object : INSTANCE
+                               * @constant {string} type
+                               * @memberof main.Class.InstanceMe
+                               */
                            , type           : Constants.OBJECT
                            };
 
@@ -670,10 +901,10 @@ THE SOFTWARE.
          me.getPrivateName   = Core.fct.getValue(me, 'privateName');
          me.getPublicName    = Core.fct.getValue(me, 'publicName');
 
-         // Création de l'environnement "this"
+         // Crï¿½ation de l'environnement "this"
          me.thisEnv      = Core.getThisEnv(me);
 
-         //Définition des différents environnements
+         //Dï¿½finition des diffï¿½rents environnements
          protectedEnv    = { env                  : me.protectedEnv
                            , addPrivate           : false
                            , addProtected         : true
@@ -712,15 +943,15 @@ THE SOFTWARE.
 
          listEnv         = [protectedEnv, publicEnv, selfEnv, thisEnv];
 
-         // Ajout de Me à la liste des ancêtres
+         // Ajout de Me ï¿½ la liste des ancï¿½tres
          me.levels.push(me);
 
-         // Si la classe est une classe étendue, alors on va créer les objets parents
+         // Si la classe est une classe ï¿½tendue, alors on va crï¿½er les objets parents
          if (me.extends !== undefined) {
             meExtends   = extendObject(me.extends, listEnv, me.levels, me);
 
-            /* Création de la liste des ancêtres :
-               - On récupère la liste des ancêtres de la classe parente
+            /* Crï¿½ation de la liste des ancï¿½tres :
+               - On rï¿½cupï¿½re la liste des ancï¿½tres de la classe parente
                - On copie la liste
                - On y ajoute la classe parente */
             me.ancestry = { me : meExtends.ancestry.me.slice(0) };
@@ -736,9 +967,9 @@ THE SOFTWARE.
          selfEnv.addPrivate = true;
          thisEnv.addPrivate = true;
 
-         // Déclaration des attributs et des méthodes statiques
+         // Dï¿½claration des attributs et des mï¿½thodes statiques
          for(name in me.definition.staticEnv) {
-            /* Note : les descriptor ont déjà tous été définis (dans createClass).
+            /* Note : les descriptor ont dï¿½jï¿½ tous ï¿½tï¿½ dï¿½finis (dans createClass).
             thisEnv n'a donc pas de sens ici.*/
             Core.declare ( me.definition.staticEnv[name] // descriptor
                          , name                          // name
@@ -749,7 +980,7 @@ THE SOFTWARE.
 
          thisEnv.include    = false;
 
-         // Déclaration des attributs et méthodes
+         // Dï¿½claration des attributs et mï¿½thodes
          for(name in me.definition.objectEnv) {
             Core.declare ( me.definition.objectEnv[name]// descriptor
                          , name                         // name
@@ -758,10 +989,9 @@ THE SOFTWARE.
                          , false);                      // isStatic
          }
 
-         // Création de $
+         // Crï¿½ation de $
          me.thisEnv.$    = { _patteBlanche  : Core.fct._patteBlanche(me)
                            , Class          : classMe.thisEnv
-                           , contextClass   : classMe.publicEnv
                            , initialization : undefined
                            , isOpen         : function () { return false; } //TODO : optimiser
                            , parent         : classMe.privateParent
@@ -773,7 +1003,6 @@ THE SOFTWARE.
 
          me.selfEnv.$    = { _patteBlanche  : Core.fct._patteBlanche(me)
                            , Class          : classMe.thisEnv
-                           , contextClass   : classMe.publicEnv
                            , initialization : undefined
                            , parent         : classMe.privateParent
                            , Public         : me.publicEnv
@@ -783,7 +1012,6 @@ THE SOFTWARE.
 
          me.protectedEnv.$ = { _patteBlanche  : Core.fct._patteBlanche(me)
                              , Class          : classMe.thisEnv
-                             , contextClass   : classMe.publicEnv
                              , initialization : undefined
                              , parent         : classMe.publicParent
                              , Public         : me.publicEnv
@@ -836,10 +1064,10 @@ THE SOFTWARE.
       * This function extend a class
       * The definition must be an open definition.
       * @func extendClass
-      * @memberof JsPackage.Class
+      * @memberof main.Class
       * @access private
       * @param {Class} cls Class use to create the object
-      * @param {JsPackage.DeclarationProperty[]} listEnv List of all declaration properties 
+      * @param {main.DeclarationProperty[]} listEnv List of all declaration properties
       * @param levels
       * @param context
       * @returns {Instance} Instance created
@@ -847,12 +1075,12 @@ THE SOFTWARE.
       var extendClass             = function(cls, listEnv, levels, context) {
          var classMe, listAncestry, me, name, openClass, selfEnv, thisEnv;
 
-         // On récupère l'objet "Me" de la classe finale (celle créee par createClass)
+         // On rï¿½cupï¿½re l'objet "Me" de la classe finale (celle crï¿½ee par createClass)
          classMe        = Core.getObject(cls.$.id);
 
          context.authorizationList[classMe.id] = 'protected';
 
-         // Création de l'objet Me de la classe courante
+         // Crï¿½ation de l'objet Me de la classe courante
          me             = { Class        : classMe.publicEnv
                           , context      : context
                           , definition   : classMe.definition
@@ -866,7 +1094,6 @@ THE SOFTWARE.
          me.thisEnv.$   = { _patteBlanche : classMe.thisEnv.$._patteBlanche
                           , Class         : classMe.thisEnv.$.Class
                           , classOf       : classMe.classOf
-                          , contextClass  : context.publicEnv
                           , definition    : classMe.thisEnv.$.definition
                           , extends       : classMe.thisEnv.$.extends
                           , id            : classMe.thisEnv.$.id
@@ -899,16 +1126,16 @@ THE SOFTWARE.
          jsObject.defineProperty(me.thisEnv.$     , 'parent', { get : classMe.getPrivateParent });
          jsObject.defineProperty(me.thisEnv.$     , 'name'  , { get : classMe.getPrivateName   });
 
-         // Si la classe courante à une classe parente, alors on la crée
+         // Si la classe courante ï¿½ une classe parente, alors on la crï¿½e
          if (me.extends !== undefined) {
             extendClass(me.extends, listEnv, levels, context);
          }
 
-         thisEnv.include     = false; // On l'exclu car il va servir de thisEnv juste après
+         thisEnv.include     = false; // On l'exclu car il va servir de thisEnv juste aprï¿½s
 
          for(name in me.definition.staticEnv) {
-            /* Note : thisEnv et selfEnv sont indépendant dans les classes parentes :
-               Si on surcharge une méthode de thisEnv, selfEnv ne doit pas changer
+            /* Note : thisEnv et selfEnv sont indï¿½pendant dans les classes parentes :
+               Si on surcharge une mï¿½thode de thisEnv, selfEnv ne doit pas changer
             */
             Core.declare ( me.definition.staticEnv[name] // descriptor
                          , name                          // name
@@ -917,7 +1144,7 @@ THE SOFTWARE.
                          , true);                        // isStatic
          }
 
-         // Dans les étapes suviantes, les attributs publiques et protégés devront être surchargés
+         // Dans les ï¿½tapes suviantes, les attributs publiques et protï¿½gï¿½s devront ï¿½tre surchargï¿½s
          thisEnv.include    = true;
 
          return;
@@ -928,9 +1155,9 @@ THE SOFTWARE.
       * This function extend a object with the parent classes
       * The definition must be an open definition.
       * @func extendObject
-      * @memberof JsPackage.Class
+      * @memberof main.Class
       * @param {Class} cls Class use to create the object
-      * @param {JsPackage.DeclarationProperty[]} listEnv List of all declaration properties 
+      * @param {main.DeclarationProperty[]} listEnv List of all declaration properties
       * @param levels
       * @param parentMe
       * @returns {Instance} Instance created
@@ -939,10 +1166,10 @@ THE SOFTWARE.
       var extendObject            = function (cls, listEnv, levels, parentMe) {
          var classMe, me, meExtends, name, openClass, protectedEnv, selfEnv, superEnv, thisEnv;
 
-         // Récupération de l'objet Me de la classe finale
+         // Rï¿½cupï¿½ration de l'objet Me de la classe finale
          classMe        = Core.getObject(cls.$.id);
 
-         // Création de Me de l'objet
+         // Crï¿½ation de Me de l'objet
          me             = { Class        : classMe.publicEnv
                           , classMe      : classMe
                           , definition   : classMe.definition
@@ -953,7 +1180,7 @@ THE SOFTWARE.
                           , thisEnv      : {}
                           , type         : Constants.OBJECT};
 
-         //Définition des différents environnements. Cf. Core.declare
+         //Dï¿½finition des diffï¿½rents environnements. Cf. Core.declare
          protectedEnv    = { env                  : me.protectedEnv
                            , addPrivate           : false
                            , addProtected         : true
@@ -987,12 +1214,12 @@ THE SOFTWARE.
 
          levels.push(me);
 
-         // Si l'objet la classe courante à elle aussi une clase parente, alors il faut créer l'objet parent
+         // Si l'objet la classe courante ï¿½ elle aussi une clase parente, alors il faut crï¿½er l'objet parent
          if (me.extends !== undefined) {
             meExtends            = extendObject(me.definition.extends, listEnv, levels, parentMe);
 
-            /* Création de la liste des ancêtres :
-               - On récupère la liste des ancêtres de la classe parente
+            /* Crï¿½ation de la liste des ancï¿½tres :
+               - On rï¿½cupï¿½re la liste des ancï¿½tres de la classe parente
                - On copie la liste
                - On y ajoute la classe parente */
             me.ancestry = { me           : meExtends.ancestry.me.slice(0) };
@@ -1007,9 +1234,9 @@ THE SOFTWARE.
 
          selfEnv.addPrivate   = true;
 
-         // Ajouts des propriétés statiques
+         // Ajouts des propriï¿½tï¿½s statiques
          for(name in me.definition.staticEnv) {
-            /* Note : les descriptor ont déjà tous été définis (dans createClass).
+            /* Note : les descriptor ont dï¿½jï¿½ tous ï¿½tï¿½ dï¿½finis (dans createClass).
             thisEnv n'a donc pas de sens ici.*/
             Core.declare ( me.definition.staticEnv[name]   // descriptor
                          , name                            // name
@@ -1020,7 +1247,7 @@ THE SOFTWARE.
 
          thisEnv.include     = false;
 
-         // Ajouts des propriétés non statiques
+         // Ajouts des propriï¿½tï¿½s non statiques
          for(name in me.definition.objectEnv) {
             Core.declare ( me.definition.objectEnv[name] // descriptor
                          , name                          // name
@@ -1030,7 +1257,6 @@ THE SOFTWARE.
          }
 
          me.thisEnv.$      = { Class          : me.Class
-                             , contextClass   : parentMe.Class
                              , isOpen         : function () { return false; } //TODO : optimiser
                              , initialization : fct.getInitialization(me)
                              , parent         : classMe.privateParent
@@ -1041,7 +1267,6 @@ THE SOFTWARE.
                              , type           : me.type};
 
          me.selfEnv.$      = { Class          : me.Class
-                             , contextClass   : parentMe.Class
                              , initialization : me.thisEnv.$.initialization
                              , parent         : classMe.privateParent
                              , Public         : parentMe.publicEnv
@@ -1051,14 +1276,13 @@ THE SOFTWARE.
                              };
 
          me.protectedEnv.$ = { Class          : me.Class
-                             , contextClass   : me.Class
                              , initialization : me.thisEnv.$.initialization
                              , parent         : classMe.publicParent
                              , Public         : parentMe.publicEnv
                              , Super          : me.thisEnv.$.Super
                              , type           : me.type };
 
-         // Dans les étapes suviantes, les attributs publiques et protégés devront être surchargés
+         // Dans les ï¿½tapes suviantes, les attributs publiques et protï¿½gï¿½s devront ï¿½tre surchargï¿½s
          thisEnv.addPrivate   = false;
          thisEnv.include      = true;
          selfEnv.include      = false;
@@ -1070,7 +1294,7 @@ THE SOFTWARE.
 
       /**
       @namespace fct
-      @memberof JsPackage.Class
+      @memberof main.Class
       */
       var fct                     = (function () {
 
@@ -1109,10 +1333,10 @@ THE SOFTWARE.
          |                                 Fonction : getAncestry
          |-----------------------------------------------------------------------------------------
          | Description :
-         |   Crée une fonction retournant la liste des ancêtres de la classe.
+         |   Crï¿½e une fonction retournant la liste des ancï¿½tres de la classe.
          |
          |-----------------------------------------------------------------------------------------
-         | Paramètre :
+         | Paramï¿½tre :
          |   me : Objet "Me" de la classe
          |
          |---------------------------------------------------------------------------------------*/
@@ -1135,11 +1359,11 @@ THE SOFTWARE.
          |                                 Fonction : getNewObject
          |-----------------------------------------------------------------------------------------
          | Description :
-         |   Crée une fonction "getNewObject". Cette fonction permet de créer une nouvelle instance
+         |   Crï¿½e une fonction "getNewObject". Cette fonction permet de crï¿½er une nouvelle instance
          | de la classe.
          |
          |-----------------------------------------------------------------------------------------
-         | Paramètre :
+         | Paramï¿½tre :
          |   me : Objet "Me" de la classe
          |
          |---------------------------------------------------------------------------------------*/
@@ -1148,9 +1372,9 @@ THE SOFTWARE.
             if (me.initialization !== undefined) {
                init = me.initialization.getValue();
                return function () {
-                  // Cette fonction doit être appelée en utilisant l'opérateur "new" (on impose la
+                  // Cette fonction doit ï¿½tre appelï¿½e en utilisant l'opï¿½rateur "new" (on impose la
                   // syntaxe). Si ce n'est pas le cas, alors on retourne undefined.
-                  // On détecte l'appel via "new" parce que dans le cas contraire, "this" === undefined.
+                  // On dï¿½tecte l'appel via "new" parce que dans le cas contraire, "this" === undefined.
                   if (this === undefined)
                      return undefined;
                   var obj = createObject(me);
@@ -1190,11 +1414,11 @@ THE SOFTWARE.
          |                                 Fonction : isAbstract
          |-----------------------------------------------------------------------------------------
          | Description :
-         |   Crée une nouvelle fonction "isAbstract" pour chaque classes. Cette fonction permet de
-         | déterminer si la classe est une classe abstraite ou non.
+         |   Crï¿½e une nouvelle fonction "isAbstract" pour chaque classes. Cette fonction permet de
+         | dï¿½terminer si la classe est une classe abstraite ou non.
          |
          |-----------------------------------------------------------------------------------------
-         | Paramètre :
+         | Paramï¿½tre :
          |   me : Objet "Me" de la classe
          |
          |---------------------------------------------------------------------------------------*/
@@ -1214,11 +1438,11 @@ THE SOFTWARE.
          |                                 Fonction : isFinal
          |-----------------------------------------------------------------------------------------
          | Description :
-         |   Crée une nouvelle fonction "isFinal" pour chaque classes. Cette fonction permet de
-         | déterminer si la classe est une classe finale ou non.
+         |   Crï¿½e une nouvelle fonction "isFinal" pour chaque classes. Cette fonction permet de
+         | dï¿½terminer si la classe est une classe finale ou non.
          |
          |-----------------------------------------------------------------------------------------
-         | Paramètre :
+         | Paramï¿½tre :
          |   me : Objet "Me" de la classe
          |
          |---------------------------------------------------------------------------------------*/
@@ -1244,19 +1468,19 @@ THE SOFTWARE.
 
                if (arguments.length === 1) {
                   instanceMe = Core.getMe(arguments[0]);
-                  
+
                   if (!instanceMe)
                      return false;
-                  
+
                   if (instanceMe.classMe === me)
                      return true;
-                  
+
                   for(j in instanceMe.ancestry.me) {
 
                      if (instanceMe.ancestry.me[j].classMe === me)
                         return true;
                   }
-                  
+
                   return false;
                }
 
@@ -1277,7 +1501,7 @@ THE SOFTWARE.
                            parentOf = true;
                      }
                   }
-                  
+
                   result.push(parentOf);
                }
 
@@ -1290,17 +1514,17 @@ THE SOFTWARE.
          |                                 Fonction : _ProtectedReturn
          |-----------------------------------------------------------------------------------------
          | Description :
-         |   Crée une nouvelle fonction "_ProtectedReturn" pour chaque classes. Elle a rôle de
-         |   retourner une l'objet "Me" si elle reçoit Core.beacon en paramètre.
+         |   Crï¿½e une nouvelle fonction "_ProtectedReturn" pour chaque classes. Elle a rï¿½le de
+         |   retourner une l'objet "Me" si elle reï¿½oit Core.beacon en paramï¿½tre.
          |
          |-----------------------------------------------------------------------------------------
-         | Paramètre :
+         | Paramï¿½tre :
          |   me : Objet "Me" de la classe
          |
          |---------------------------------------------------------------------------------------*/
          var _ProtectedReturn          = function (me) {
             return function (b) {
-               // Si on reçoit autre chose que Core.beacon, on retourne undefined
+               // Si on reï¿½oit autre chose que Core.beacon, on retourne undefined
                if (b != Core.beacon) {
                   return undefined;
                }
@@ -1349,7 +1573,7 @@ THE SOFTWARE.
 
          var definition;
 
-         // Valeurs par défaut
+         // Valeurs par dï¿½faut
          definition = { $ : { toSeal : true
                               , parent : undefined
                             , name   : undefined }};
@@ -1358,10 +1582,10 @@ THE SOFTWARE.
 
          definition = Definition.new(definition, {$:{sealed:false}}).$._open(Core.beacon);
 
-         // On vérifie que la définition est valide pour une classe.
+         // On vï¿½rifie que la dï¿½finition est valide pour une classe.
          validateDefinition(definition);
 
-         // On scelle la définition
+         // On scelle la dï¿½finition
          definition.publicEnv.$.seal();
 
          return createClass(definition);
@@ -1371,12 +1595,12 @@ THE SOFTWARE.
       |--------------------------------------------------------------------------------------------
       |
       | Description :
-      |   Valide la définition pour la création de classe.
-      |   Cette fonction est appelée par la fonction Definition.validateDefinition
+      |   Valide la dï¿½finition pour la crï¿½ation de classe.
+      |   Cette fonction est appelï¿½e par la fonction Definition.validateDefinition
       |
       |--------------------------------------------------------------------------------------------
-      | Paramètres :
-      |   . definition : définition, ouverte, à valider.
+      | Paramï¿½tres :
+      |   . definition : dï¿½finition, ouverte, ï¿½ valider.
       |
       |------------------------------------------------------------------------------------------*/
       var validateDefinition      = function (definition) {
@@ -1436,11 +1660,11 @@ THE SOFTWARE.
             }
         }
    };
-   
+
    /**
     * This namespace regroup all common functions of JsPackage
     * @namespace Core
-    * @memberof JsPackage
+    * @memberof main
     * @access private
     */
    Core                  = (function () {
@@ -1458,19 +1682,19 @@ THE SOFTWARE.
       /**
       * <p>This function declare in all environments present in listEnv the member describe by descriptor.</p>
       * @function declare
-      * @memberof JsPackage.Core
+      * @memberof main.Core
       * @param {Descriptor} descriptor Descriptor of the member
       * @param {string} name Name of the member
       * @param {ClassThisEnv|InstanceThisEnv|PackageThisEnv} thisEnv Private environment of the object
-      * @param {JsPackage.DeclarationProperty} listEnv Environment inwich the member will be added
+      * @param {main.DeclarationProperty} listEnv Environment inwich the member will be added
       * @param {boolean} isStatic Determin weither (true) or not (false) the member is a static member
       */
       var declare                 = function (descriptor, name, thisEnv, listEnv, isStatic) {
          var add, allowed, alreadyDefined, desc, env, i, property;
 
          if (isStatic && (descriptor.property !== undefined)) {
-            /* Les membres statiques sont crées par la classe et leur propriétées sont conservées
-                dans le descripteur. De fait, on a pas à calculer leur propriétés, juste les
+            /* Les membres statiques sont crï¿½es par la classe et leur propriï¿½tï¿½es sont conservï¿½es
+                dans le descripteur. De fait, on a pas ï¿½ calculer leur propriï¿½tï¿½s, juste les
                rechercher*/
             property    = descriptor.property;
          }
@@ -1481,11 +1705,11 @@ THE SOFTWARE.
                property = declareAttribute(thisEnv, name, descriptor);
 
             if (isStatic)
-               // Si la propriété est statique, on la conserve
+               // Si la propriï¿½tï¿½ est statique, on la conserve
                descriptor.property = property;
          }
 
-         // Ajout de la propriété dans tout les environnements
+         // Ajout de la propriï¿½tï¿½ dans tout les environnements
          for(i in listEnv) {
             desc = listEnv[i];
             if (desc.include) {
@@ -1683,17 +1907,17 @@ THE SOFTWARE.
       |                                        hasProperty
       |-----------------------------------------------------------------------------------------
       |
-      | Vérifie si l'objet "object" à défini la propriété "property". Cela ne vérifie pas si la
-      | propriété à une valeur.
+      | Vï¿½rifie si l'objet "object" ï¿½ dï¿½fini la propriï¿½tï¿½ "property". Cela ne vï¿½rifie pas si la
+      | propriï¿½tï¿½ ï¿½ une valeur.
       |
       |-----------------------------------------------------------------------------------------
       | Arguments:
-      |   . object   : Objet à annalyser
-      |   . property : Nom de la propriété à tester
+      |   . object   : Objet ï¿½ annalyser
+      |   . property : Nom de la propriï¿½tï¿½ ï¿½ tester
       |-----------------------------------------------------------------------------------------
       | Retour:
-      |  true  : la propriété est définie
-      |  false : la propriété n'est pas définie
+      |  true  : la propriï¿½tï¿½ est dï¿½finie
+      |  false : la propriï¿½tï¿½ n'est pas dï¿½finie
       |
       |-----------------------------------------------------------------------------------------
       | Exemple :
@@ -1737,32 +1961,32 @@ THE SOFTWARE.
       |                                       getDefinition
       |-----------------------------------------------------------------------------------------
       |
-      | Cette fonction est appelée par les fonctions "newObject" (ex: newClass, newDefinition,
+      | Cette fonction est appelï¿½e par les fonctions "newObject" (ex: newClass, newDefinition,
       | ...).
-      | Elle reçoit en paramètre la liste des arguments passé en paramètre de ces fonctions.
-      | Elle va ensuite vérifier qu'il s'agit d'objets utilisables comme définition, ou des
-      | définitions, et ensuite merger l'ensemble de ces objets dans une nouvelle définition
-      | via la fonction Core.merge. Seront mergé aussi les éléments de '$'.
+      | Elle reï¿½oit en paramï¿½tre la liste des arguments passï¿½ en paramï¿½tre de ces fonctions.
+      | Elle va ensuite vï¿½rifier qu'il s'agit d'objets utilisables comme dï¿½finition, ou des
+      | dï¿½finitions, et ensuite merger l'ensemble de ces objets dans une nouvelle dï¿½finition
+      | via la fonction Core.merge. Seront mergï¿½ aussi les ï¿½lï¿½ments de '$'.
       | Notes :
-      |   . Si un des paramètres est undefined, alors on considère que c'est une définition
+      |   . Si un des paramï¿½tres est undefined, alors on considï¿½re que c'est une dï¿½finition
       |     vide ({}).
-      |   . Si un des paramètres n'est pas compatible avec une définition (cad non un objet
-      |     ou une fonction), alors l'erreur Errors.InvalidDefinition est levée.
-      | Note : l'objet retournée n'est PAS une instance de Definition. Il s'agit juste d'une
+      |   . Si un des paramï¿½tres n'est pas compatible avec une dï¿½finition (cad non un objet
+      |     ou une fonction), alors l'erreur Errors.InvalidDefinition est levï¿½e.
+      | Note : l'objet retournï¿½e n'est PAS une instance de Definition. Il s'agit juste d'une
       | objet classique.
       |
       |-----------------------------------------------------------------------------------------
       | Arguments:
-      |   . definitionList : Liste des objets définitions
+      |   . definitionList : Liste des objets dï¿½finitions
       |
       |-----------------------------------------------------------------------------------------
       | Retour:
-      |  L'objet nouvellement crée
+      |  L'objet nouvellement crï¿½e
       |
       |-----------------------------------------------------------------------------------------
       | Exception:
-      |  InvalidDefinition : au moins un élément de definitionList n'est pas utilisable comme
-      |     définition.
+      |  InvalidDefinition : au moins un ï¿½lï¿½ment de definitionList n'est pas utilisable comme
+      |     dï¿½finition.
       |
       |---------------------------------------------------------------------------------------*/
       var getDefinition           = function(definitionList) {
@@ -1796,10 +2020,10 @@ THE SOFTWARE.
       |                                 Fonction : getThisEnv
       |--------------------------------------------------------------------------------------------
       | Description :
-      |   Crée une nouvelle fonction "this" pour chaque class, package.
+      |   Crï¿½e une nouvelle fonction "this" pour chaque class, package.
       |
       |--------------------------------------------------------------------------------------------
-      | Paramètre :
+      | Paramï¿½tre :
       |   me : Objet "Me" de la classe
       |
       |------------------------------------------------------------------------------------------*/
@@ -1813,17 +2037,17 @@ THE SOFTWARE.
       |                                       isDynamicValue
       |-----------------------------------------------------------------------------------------
       |
-      | Vérifie que la proprieté "property" de l'objet "object" n'est pas une proprieté
+      | Vï¿½rifie que la proprietï¿½ "property" de l'objet "object" n'est pas une proprietï¿½
       | dynamique.
       |
       |-----------------------------------------------------------------------------------------
       | Arguments:
-      |   . object   : Objet à annalyser
-      |   . property : Nom de la propriété à tester
+      |   . object   : Objet ï¿½ annalyser
+      |   . property : Nom de la propriï¿½tï¿½ ï¿½ tester
       |-----------------------------------------------------------------------------------------
       | Retour:
-      |  true  : la propriété est dynamique
-      |  false : la propriété n'est pas dynamique
+      |  true  : la propriï¿½tï¿½ est dynamique
+      |  false : la propriï¿½tï¿½ n'est pas dynamique
       |
       |-----------------------------------------------------------------------------------------
       | Exemple :
@@ -1920,11 +2144,11 @@ THE SOFTWARE.
                                    , Namespace         : Descriptor.new().set(Namespace.namespace )
                                    , Package           : Descriptor.new().set(Package.namespace   )
                                      // Constantes et listes
-                                   , Constants         : Constants.publicEnv
-                                   , Errors            : Namespace.new(Errors)
+                                   , errors            : Namespace.new(Errors)
                                    , Object            : jsObject
-                                   , GlobalContext     : globalThis
-                                     // Méthodes
+                                   , globalContext     : globalThis
+                                   , version           : version
+                                     // Methods
                                    , convertDefinition : Definition.convertDefinition
                                    , declareInto       : initialiseInto_public
                                    , isDescriptor      : Descriptor.isDescriptor
@@ -1937,18 +2161,20 @@ THE SOFTWARE.
                                                          , name   : globalName
                                                          , seal   : true}});
 
-         Class      .namespace.Core = publicEnv;
-         Definition .namespace.Core = publicEnv;
-         Descriptor .namespace.Core = publicEnv;
-         Interface  .namespace.Core = publicEnv;
-         Namespace  .namespace.Core = publicEnv;
-         Package    .namespace.Core = publicEnv;
+         Class      .namespace.Core    = publicEnv;
+         Definition .namespace.Core    = publicEnv;
+         Descriptor .namespace.Core    = publicEnv;
+         Interface  .namespace.Core    = publicEnv;
+         Namespace  .namespace.Core    = publicEnv;
+         Package    .namespace.Core    = publicEnv;
+
+         Class      .namespace.Version = Version;
 
          publicEnv.$.seal();
       };
 
       var initialiseInto_public   = function(env) {
-         
+
          initializeGlobalThis(env);
 
          jsObject.defineProperty(env, 'Class'     , { enumerable   : true
@@ -1975,34 +2201,34 @@ THE SOFTWARE.
                                                     , writable     : false
                                                     , configurable : false
                                                     , value        : publicEnv.Descriptor});
-         
+
          jsObject.defineProperty(env, 'Interface' , { enumerable   : true
                                                     , writable     : false
                                                     , configurable : false
                                                     , value        : publicEnv.Interface});
-                                                    
+
          jsObject.defineProperty(env, globalName  , { enumerable   : true
                                                     , writable     : false
                                                     , configurable : false
                                                     , value        : publicEnv});
-         
+
       };
 
       /*----------------------------------------------------------------------------------------
       |                                       merge
       |-----------------------------------------------------------------------------------------
       |
-      | Merge les propriétés de plusieurs objets. Si "intoTheFirst" égale true alors l'ensemble
-      | sera mergé dans le premier élément. Sinon, dans un  nouvel élément.
-      | Le merge se fait du premier élément de la liste (index 0) au dernier élément.
-      | L'élément le plus à droite (cad qui a le plus grand indice dans le tableau) écrasera
-      | les propriétés des autres s'il les définie.
+      | Merge les propriï¿½tï¿½s de plusieurs objets. Si "intoTheFirst" ï¿½gale true alors l'ensemble
+      | sera mergï¿½ dans le premier ï¿½lï¿½ment. Sinon, dans un  nouvel ï¿½lï¿½ment.
+      | Le merge se fait du premier ï¿½lï¿½ment de la liste (index 0) au dernier ï¿½lï¿½ment.
+      | L'ï¿½lï¿½ment le plus ï¿½ droite (cad qui a le plus grand indice dans le tableau) ï¿½crasera
+      | les propriï¿½tï¿½s des autres s'il les dï¿½finie.
       |
       |-----------------------------------------------------------------------------------------
       | Arguments:
-      |   . args         : Liste des objets à merger
-      |   . intoTheFirst : Décide si oui (true) ou non (false) les éléments doivent être insérés
-      |     dans le premier élément ou non.
+      |   . args         : Liste des objets ï¿½ merger
+      |   . intoTheFirst : Dï¿½cide si oui (true) ou non (false) les ï¿½lï¿½ments doivent ï¿½tre insï¿½rï¿½s
+      |     dans le premier ï¿½lï¿½ment ou non.
       |-----------------------------------------------------------------------------------------
       | Retour:
       |  Objet correspondant au merge
@@ -2052,22 +2278,22 @@ THE SOFTWARE.
       |                                      openObject
       |--------------------------------------------------------------------------------------------
       |
-      | Ouvre un objet. Cette fonction est appelée par les méthodes des packages et les classes
-      | qui souhaitent acceder aux éléments privés et protégés des objets.
+      | Ouvre un objet. Cette fonction est appelï¿½e par les mï¿½thodes des packages et les classes
+      | qui souhaitent acceder aux ï¿½lï¿½ments privï¿½s et protï¿½gï¿½s des objets.
       | Cette fonction repose sur la variable "authorizationList" des classes et des packages.
-      | Il s'agit d'un objet contenant les autorisations d'accès aux environements privés et
-      | protégés des classes et des packages. Chaque clé de l'objet correspond à des
-      | classes et des packages dont ont à l'accès aux environnements privés ou protégés
-      | Chaque valeur correspond à l'autorisation en question : 'protégé' ou 'privé'.
-      | Lorsque openObject reçoit un objet à ouvrir, il va vérifier si le rootId de cet objet est
-      | dans cette liste. Si c'est n'est pas le cas, c'est que l'on a aucun accès particulier avec
+      | Il s'agit d'un objet contenant les autorisations d'accï¿½s aux environements privï¿½s et
+      | protï¿½gï¿½s des classes et des packages. Chaque clï¿½ de l'objet correspond ï¿½ des
+      | classes et des packages dont ont ï¿½ l'accï¿½s aux environnements privï¿½s ou protï¿½gï¿½s
+      | Chaque valeur correspond ï¿½ l'autorisation en question : 'protï¿½gï¿½' ou 'privï¿½'.
+      | Lorsque openObject reï¿½oit un objet ï¿½ ouvrir, il va vï¿½rifier si le rootId de cet objet est
+      | dans cette liste. Si c'est n'est pas le cas, c'est que l'on a aucun accï¿½s particulier avec
       | l'objet : on le rend tel-quel alors.
       | Si c'est le cas, dans le cas d'un package, on retournera directement l'environnement
-      | privé : les packages aux accès aux environnements privés de ces pères et fils.
+      | privï¿½ : les packages aux accï¿½s aux environnements privï¿½s de ces pï¿½res et fils.
       | Si c'est une classe, alors on recherche son ID dans la liste des autorisation. S'il n'est
-      | pas présent, alors on s'interessera à son père de la même manière.
-      | Une fois que l'on a trouvé, on regarde l'autorisation (valeur).
-      | On retourne alors l'environnement privé ou protégé du niveau trouvé.
+      | pas prï¿½sent, alors on s'interessera ï¿½ son pï¿½re de la mï¿½me maniï¿½re.
+      | Une fois que l'on a trouvï¿½, on regarde l'autorisation (valeur).
+      | On retourne alors l'environnement privï¿½ ou protï¿½gï¿½ du niveau trouvï¿½.
       |
       |------------------------------------------------------------------------------------------*/
       var openObject              = function (me, obj) {
@@ -2127,13 +2353,13 @@ THE SOFTWARE.
       /*-------------------------------------------------------------------------------------------
       |                                     sealEnv
       |--------------------------------------------------------------------------------------------
-      | Scèle un environnement et l'objet "$".
+      | Scï¿½le un environnement et l'objet "$".
       |
-      | Si toSeal est false, alors seul "$" sera scellé.
+      | Si toSeal est false, alors seul "$" sera scellï¿½.
       |
-      | Si seal$ est false, alors on ne cherche pas à sceller les différents éléments de "$" car
-      | ils auront déjà été scellé (sur Safari, le mode strict interdit de modifier un élément déjà
-      | scellé).
+      | Si seal$ est false, alors on ne cherche pas ï¿½ sceller les diffï¿½rents ï¿½lï¿½ments de "$" car
+      | ils auront dï¿½jï¿½ ï¿½tï¿½ scellï¿½ (sur Safari, le mode strict interdit de modifier un ï¿½lï¿½ment dï¿½jï¿½
+      | scellï¿½).
       |
       |------------------------------------------------------------------------------------------*/
 
@@ -2163,15 +2389,15 @@ THE SOFTWARE.
       |                                     secureObject
       |-----------------------------------------------------------------------------------------
       |
-      | L'objet standard "Object" peut-être écrasé via une simple commande (ex : Object=1). De
-      | fait, il faut "sécuriser" les fonctions de "Object". Un écrasement empêcherait, dans le
+      | L'objet standard "Object" peut-ï¿½tre ï¿½crasï¿½ via une simple commande (ex : Object=1). De
+      | fait, il faut "sï¿½curiser" les fonctions de "Object". Un ï¿½crasement empï¿½cherait, dans le
       | meilleur des cas, le fonctionnement correct de Class-Object, mais dans le pire des cas,
-      | on peut imaginer que Object à été remplacé par un faux, avec des fonctions qui simule
-      | celle de Object. Dit autrement, le fait que "Object" soit écrasable est un trou de
-      | sécurité. La "parade" est donc de copier toute ces fonctions dans un objet interne à
+      | on peut imaginer que Object ï¿½ ï¿½tï¿½ remplacï¿½ par un faux, avec des fonctions qui simule
+      | celle de Object. Dit autrement, le fait que "Object" soit ï¿½crasable est un trou de
+      | sï¿½curitï¿½. La "parade" est donc de copier toute ces fonctions dans un objet interne ï¿½
       | ClassObject : jsObject. Ainsi, au lieu d'appeler "Object", on appelera "jsObject".
       | Note : on aurait pu se contenter de "fixer" Object via la fonction "seal". Mais, cela
-      | reviendrait à modifier le un comportement standard, ce qui n'est pas acceptable.
+      | reviendrait ï¿½ modifier le un comportement standard, ce qui n'est pas acceptable.
       |
       |-----------------------------------------------------------------------------------------
       | Arguments :
@@ -2192,6 +2418,8 @@ THE SOFTWARE.
          Object.seal(obj);
          return obj;
       };
+
+      var is
 
       return { beacon                : beacon
              , createPackage         : createPackage
@@ -2221,89 +2449,89 @@ THE SOFTWARE.
    |-----------------------------------------------------------------------------------------------
    | Description
    |
-   |    Ce package permet la création de Definition.
+   |    Ce package permet la crï¿½ation de Definition.
    |
    |-----------------------------------------------------------------------------------------------
-   | Éléments privés du package :
+   | ï¿½lï¿½ments privï¿½s du package :
    |
    |    +--------------------+---------------+--------------------------------------------------+
    |    |        Nom         |     Type      |                  Description                     |
    |    +--------------------+---------------+--------------------------------------------------+
-   |    | cloneDefinition    | fonction      | Clone une définition                             |
+   |    | cloneDefinition    | fonction      | Clone une dï¿½finition                             |
    |    +--------------------+---------------+--------------------------------------------------+
-   |    | createDefinition   | fonction      | Créer une définition                             |
+   |    | createDefinition   | fonction      | Crï¿½er une dï¿½finition                             |
    |    +--------------------+---------------+--------------------------------------------------+
-   |    | convertDefinition  | fonction      | Créer une instance d'une classe                  |
+   |    | convertDefinition  | fonction      | Crï¿½er une instance d'une classe                  |
    |    +--------------------+---------------+--------------------------------------------------+
    |
    |-----------------------------------------------------------------------------------------------
-   | Création d'une définition
+   | Crï¿½ation d'une dï¿½finition
    |
-   |    La création d'une définition est faite à partir de la fonction newDefinition.
-   |    Cette fonction reçoit en paramètre :
-   |      . Soit un objet, qui est converti en définition par createDefinition
-   |      . Soit une autre définition, dont on retournera alors le clone, non scellé
+   |    La crï¿½ation d'une dï¿½finition est faite ï¿½ partir de la fonction newDefinition.
+   |    Cette fonction reï¿½oit en paramï¿½tre :
+   |      . Soit un objet, qui est converti en dï¿½finition par createDefinition
+   |      . Soit une autre dï¿½finition, dont on retournera alors le clone, non scellï¿½
    |
    |-----------------------------------------------------------------------------------------------
-   | Structure d'une définition
-   | Une définition est composé d'un objet "me". La partie publique de la définition correspond à
+   | Structure d'une dï¿½finition
+   | Une dï¿½finition est composï¿½ d'un objet "me". La partie publique de la dï¿½finition correspond ï¿½
    | l'objet me.publicEnv.
-   | Voici la structure d'une définition :
+   | Voici la structure d'une dï¿½finition :
    |
    |   |-me
-   |   |   |-number id                       : ID de la définition.
-   |   |   |-Class/Interface extends         : Classe ou interface étendue par la définition.
+   |   |   |-number id                       : ID de la dï¿½finition.
+   |   |   |-Class/Interface extends         : Classe ou interface ï¿½tendue par la dï¿½finition.
    |   |   |-function initialization         : Fonction d'initialization de la classe.
-   |   |   |-[Interface] interfaces          : Liste des interfaces implémentées.
-   |   |   |-boolean isAbstract              : défini si oui (true) ou non (false), la définition
-   |   |   |                                   correspond à un objet abstrait (classe ou interface).
-   |   |   |-boolean isAbstract              : défini si oui (true) ou non (false), la définition
-   |   |   |                                   correspond à un objet final.
-   |   |   |-boolean isSealed                : défini si oui (true) ou non (false) la définition est
-   |   |   |                                   scellée.
-   |   |   |-Descriptor restrict             : Descripteur restreignant l'exécution de la classe.
-   |   |   |-Object objectEnv                : Liste de tout les attributs et méthodes objet
-   |   |   |-Object publicEnv                : Liste de toute les propriétés de la définition.
-   |   |   |-Descriptor restrict             : Restreint la création d'instance de classe.
-   |   |   |-Object staticEnv                : Liste de tout les attributs et méthodes statiques
-   |   |   |-setParam                        : Défini un paramètre de la définition. Cette fonction
-   |   |   |                                   lève une exception si elle est appelée alors que la
-   |   |   |                                   définition est scellée.
+   |   |   |-[Interface] interfaces          : Liste des interfaces implï¿½mentï¿½es.
+   |   |   |-boolean isAbstract              : dï¿½fini si oui (true) ou non (false), la dï¿½finition
+   |   |   |                                   correspond ï¿½ un objet abstrait (classe ou interface).
+   |   |   |-boolean isAbstract              : dï¿½fini si oui (true) ou non (false), la dï¿½finition
+   |   |   |                                   correspond ï¿½ un objet final.
+   |   |   |-boolean isSealed                : dï¿½fini si oui (true) ou non (false) la dï¿½finition est
+   |   |   |                                   scellï¿½e.
+   |   |   |-Descriptor restrict             : Descripteur restreignant l'exï¿½cution de la classe.
+   |   |   |-Object objectEnv                : Liste de tout les attributs et mï¿½thodes objet
+   |   |   |-Object publicEnv                : Liste de toute les propriï¿½tï¿½s de la dï¿½finition.
+   |   |   |-Descriptor restrict             : Restreint la crï¿½ation d'instance de classe.
+   |   |   |-Object staticEnv                : Liste de tout les attributs et mï¿½thodes statiques
+   |   |   |-setParam                        : Dï¿½fini un paramï¿½tre de la dï¿½finition. Cette fonction
+   |   |   |                                   lï¿½ve une exception si elle est appelï¿½e alors que la
+   |   |   |                                   dï¿½finition est scellï¿½e.
    |   |   |-string type                     : Type d'objet. Ici : Constant.DEFINITION.
    |
    | Format de me.publiEnv.$ :
    |
    | me.publicEnv.$
-   |   |- boolean abstract                   : retourne me.isAbstract. Lève une exception si mit à
-   |   |                                       jour alors que la définition est scellée.
-   |   |                                       jour alors que la définition est scellée.
-   |   |- Class/Interface extends            : retourne me.extends. Lève une exception si mit à
-   |   |                                       jour alors que la définition est scellée.
-   |   |- boolean final                      : retourne me.isFinal. Lève une exception si mit à
-   |   |                                       jour alors que la définition est scellée.
+   |   |- boolean abstract                   : retourne me.isAbstract. Lï¿½ve une exception si mit ï¿½
+   |   |                                       jour alors que la dï¿½finition est scellï¿½e.
+   |   |                                       jour alors que la dï¿½finition est scellï¿½e.
+   |   |- Class/Interface extends            : retourne me.extends. Lï¿½ve une exception si mit ï¿½
+   |   |                                       jour alors que la dï¿½finition est scellï¿½e.
+   |   |- boolean final                      : retourne me.isFinal. Lï¿½ve une exception si mit ï¿½
+   |   |                                       jour alors que la dï¿½finition est scellï¿½e.
    |   |- number id                          : retourne me.id. Lecture-seule.
-   |   |- [Interface] implements             : retourne me.interfaces. Lève une exception si mit à
-   |   |                                       jour alors que la définition est scellée.
-   |   |- boolean isSealed ()                : retourne true si la définition est scellée, false
+   |   |- [Interface] implements             : retourne me.interfaces. Lï¿½ve une exception si mit ï¿½
+   |   |                                       jour alors que la dï¿½finition est scellï¿½e.
+   |   |- boolean isSealed ()                : retourne true si la dï¿½finition est scellï¿½e, false
    |   |                                       sinon.
-   |   |- seal()                             : scelle la définition.
-   |   |- validate([string whatFor])         : valide la définition.
+   |   |- seal()                             : scelle la dï¿½finition.
+   |   |- validate([string whatFor])         : valide la dï¿½finition.
    |   |- string type                        : retourne me.type.
    |
    |---------------------------------------------------------------------------------------------*/
    /**
     * @namespace Definition
-    * @memberof JsPackage
+    * @memberof main
     */
-   var Definition            = (function () {
+   Definition            = (function () {
 
       /*-------------------------------------------------------------------------------------------
       |                          Definition Private cloneDefinition
       |--------------------------------------------------------------------------------------------
       |
       | Description :
-      |   Clone la définition reçue en paramètre.
-      |   La définition retournée n'est pas scellée.
+      |   Clone la dï¿½finition reï¿½ue en paramï¿½tre.
+      |   La dï¿½finition retournï¿½e n'est pas scellï¿½e.
       |
       |------------------------------------------------------------------------------------------*/
       var cloneDefinition         = function (me) {
@@ -2343,18 +2571,18 @@ THE SOFTWARE.
       |--------------------------------------------------------------------------------------------
       |
       | Description :
-      |   Crée une définition à partir d'un objet Definition reçu en paramètre.
+      |   Crï¿½e une dï¿½finition ï¿½ partir d'un objet Definition reï¿½u en paramï¿½tre.
       |
       |------------------------------------------------------------------------------------------*/
       var createDefinition        = function (objectDefinition) {
 
          var desc, i, name, newDef, me, obj, parent, parameters, visibility;
 
-         // Si objectDefinition est déjà une définition, alors on retourne un clone.
+         // Si objectDefinition est dï¿½jï¿½ une dï¿½finition, alors on retourne un clone.
          if (isDefinition(objectDefinition))
             return objectDefinition.$.clone();
 
-         // Création de l'objet me
+         // Crï¿½ation de l'objet me
          me                         = { isSealed      : false
                                       , objectEnv     : {}
                                       , publicEnv     : {}
@@ -2376,16 +2604,16 @@ THE SOFTWARE.
                                       , type               : me.type
                                       , validate           : fct.validate(me)};
 
-         // Ajouts des propriétés
+         // Ajouts des propriï¿½tï¿½s
          for(name in objectDefinition) {
             if (name !== '$')
                me.publicEnv[name] = objectDefinition[name];
          }
 
-         // Ajout des paramètres de création.
+         // Ajout des paramï¿½tres de crï¿½ation.
          // On ne fait que les copier
-         // les paramètres seront "normalisés" par la fonction "seal".
-         // Les paramètres sont :
+         // les paramï¿½tres seront "normalisï¿½s" par la fonction "seal".
+         // Les paramï¿½tres sont :
          parameters = ['abstract', 'extends', 'Final', 'implements', 'initialization', 'name', 'parent', 'restrict'];
 
          for(i in parameters) {
@@ -2400,9 +2628,9 @@ THE SOFTWARE.
             }
          }
 
-         // TODO : vérification faites au mauvais endroit : on doit vérifier lorsque l'on scèlle la définition
+         // TODO : vï¿½rification faites au mauvais endroit : on doit vï¿½rifier lorsque l'on scï¿½lle la dï¿½finition
 
-         // Vérification des paramètres
+         // Vï¿½rification des paramï¿½tres
          if (me.publicEnv.$.parent !== undefined) {
 
             if (Descriptor.isDescriptor(me.publicEnv.$.parent)) {
@@ -2421,7 +2649,7 @@ THE SOFTWARE.
             me.publicEnv.$.parent = desc;
          }
 
-         // Vérification du paramètre : implements
+         // Vï¿½rification du paramï¿½tre : implements
          if (me.publicEnv.$.implements !== undefined) {
 
             if (!(me.publicEnv.$.implements instanceof Array))
@@ -2458,75 +2686,75 @@ THE SOFTWARE.
       |-----------------------------------------------------------------------------------------
       | Description :
       |
-      |   Contrôle et vérifie la définition de classe passée en paramètre.
+      |   Contrï¿½le et vï¿½rifie la dï¿½finition de classe passï¿½e en paramï¿½tre.
       |
-      |   Format de la définition de classe :
-      |     . La définition de classe est un dictionnaire.
-      |     . Chaque entrée du dictionnaire correspond à la définition d'un attribut ou d'une
-      |       méthode de la classe.
-      |        . La clé correspond au nom de l'attribut/méthode
-      |           . Le premier carractère doit être une lettre
-      |           . Elle doit être composé que de carractères alphanumériques et du
-      |             carractère underscore "_".
+      |   Format de la dï¿½finition de classe :
+      |     . La dï¿½finition de classe est un dictionnaire.
+      |     . Chaque entrï¿½e du dictionnaire correspond ï¿½ la dï¿½finition d'un attribut ou d'une
+      |       mï¿½thode de la classe.
+      |        . La clï¿½ correspond au nom de l'attribut/mï¿½thode
+      |           . Le premier carractï¿½re doit ï¿½tre une lettre
+      |           . Elle doit ï¿½tre composï¿½ que de carractï¿½res alphanumï¿½riques et du
+      |             carractï¿½re underscore "_".
       |           . Le nom respect d'une de ces conditions entrainera une exception :
       |             Exception : nonValidName
-      |        . La valeur correspond à la définition
-      |     . Il y a trois format de définitions d'attributs/méthodes reconnus:
-      |       . La valeur est le résultat des fonctions fournissant les propriétés de l'attribut/
-      |         méthode (private, public, ...). Il s'agit là de condition idéales : l'objectif
+      |        . La valeur correspond ï¿½ la dï¿½finition
+      |     . Il y a trois format de dï¿½finitions d'attributs/mï¿½thodes reconnus:
+      |       . La valeur est le rï¿½sultat des fonctions fournissant les propriï¿½tï¿½s de l'attribut/
+      |         mï¿½thode (private, public, ...). Il s'agit lï¿½ de condition idï¿½ales : l'objectif
       |         de "convertDefinition" sera de convertir les deux autres formats en celui-ci.
-      |       . La valeur est un dictionnaire composé de deux éléments :
-      |         . Un élément dont la clé est "define": La valeur est le résultat des fonctions
-      |           fournissant les propriétés de l'attribut/méthode (private/public). Si cet
-      |           cet élément est obligatoire.
+      |       . La valeur est un dictionnaire composï¿½ de deux ï¿½lï¿½ments :
+      |         . Un ï¿½lï¿½ment dont la clï¿½ est "define": La valeur est le rï¿½sultat des fonctions
+      |           fournissant les propriï¿½tï¿½s de l'attribut/mï¿½thode (private/public). Si cet
+      |           cet ï¿½lï¿½ment est obligatoire.
       |         . Au choix :
-      |            . Un élément dont la clé est "Method": La valeur est la fonction servant de
-      |              méthode. Cela déterminera alors une méthode. Si les propriétés définies
-      |              dans "define" déclare un attribut, alors l'exception suivante sera levée:
+      |            . Un ï¿½lï¿½ment dont la clï¿½ est "Method": La valeur est la fonction servant de
+      |              mï¿½thode. Cela dï¿½terminera alors une mï¿½thode. Si les propriï¿½tï¿½s dï¿½finies
+      |              dans "define" dï¿½clare un attribut, alors l'exception suivante sera levï¿½e:
       |              Exception : uncoherentProperties
-      |            . Un élément dont la clé est "value": Cet élément détermine un attribut. Si
-      |              les propriétés définies dans "define" déclare une méthode, l'exception
-      |              "uncoherentProperties" sera levée.
-      |       . Dans tout les autres cas, la valeur déterminera si on à affaire à un attribut
-      |         ou une méthode. Si l'objet est une fonction, alors on considéreras que cette
-      |         propriété de la classe est une méthode publique non-statique. La fonction
-      |         passée en paramètre constituera la méthode.
-      |         Sinon, on considéreras la propriéé comme un attribut publique non-statique.
-      |         Dans le cas où on à affaire à un dictionnaire, c'est la clé "define" et son
-      |         contenu qui permettra de faire la différence entre un dictionnaire "classique"
-      |         et une déclaration.
+      |            . Un ï¿½lï¿½ment dont la clï¿½ est "value": Cet ï¿½lï¿½ment dï¿½termine un attribut. Si
+      |              les propriï¿½tï¿½s dï¿½finies dans "define" dï¿½clare une mï¿½thode, l'exception
+      |              "uncoherentProperties" sera levï¿½e.
+      |       . Dans tout les autres cas, la valeur dï¿½terminera si on ï¿½ affaire ï¿½ un attribut
+      |         ou une mï¿½thode. Si l'objet est une fonction, alors on considï¿½reras que cette
+      |         propriï¿½tï¿½ de la classe est une mï¿½thode publique non-statique. La fonction
+      |         passï¿½e en paramï¿½tre constituera la mï¿½thode.
+      |         Sinon, on considï¿½reras la propriï¿½ï¿½ comme un attribut publique non-statique.
+      |         Dans le cas oï¿½ on ï¿½ affaire ï¿½ un dictionnaire, c'est la clï¿½ "define" et son
+      |         contenu qui permettra de faire la diffï¿½rence entre un dictionnaire "classique"
+      |         et une dï¿½claration.
       |
       |-----------------------------------------------------------------------------------------
       | Parametres :
-      |    . oldDef : définition à convertir. La définition ne sera pas modifiée, y comprit
+      |    . oldDef : dï¿½finition ï¿½ convertir. La dï¿½finition ne sera pas modifiï¿½e, y comprit
       |      si le format est incorrect.
       |
       |----------------------------------------------------------------------------------------
       | Retour :
-      |   Nouvelle définition, correspondant à la définition passée en paramètre convertie.
+      |   Nouvelle dï¿½finition, correspondant ï¿½ la dï¿½finition passï¿½e en paramï¿½tre convertie.
       |
       |-----------------------------------------------------------------------------------------
       | Exceptions :
       |
       |-----------------------------------------------------------------------------------------
       | TODO :
-      |   Vérifier que les méthodes/attributs respects l'héritage : si le père défini une méthode,
-      |  et que le fils veut l'écraser, il doit l'écraser avec une méthode aussi. Idem pour les
-      |  attributs, pour les constantes, la visibilité.
-      |   Vérifier que les méthodes/attributs écraser ne sont pas écrit comme "Final" par le père
-      |   ou un ancêtre.
+      |   Vï¿½rifier que les mï¿½thodes/attributs respects l'hï¿½ritage : si le pï¿½re dï¿½fini une mï¿½thode,
+      |  et que le fils veut l'ï¿½craser, il doit l'ï¿½craser avec une mï¿½thode aussi. Idem pour les
+      |  attributs, pour les constantes, la visibilitï¿½.
+      |   Vï¿½rifier que les mï¿½thodes/attributs ï¿½craser ne sont pas ï¿½crit comme "Final" par le pï¿½re
+      |   ou un ancï¿½tre.
       |
       |---------------------------------------------------------------------------------------*/
       var convertDefinition       = function (oldDef) {
          var descriptor,def,extend,extendDefinition,extendedProperty,invalid,name,newDef,object;
 
-         // TODO : vérifier que "init" est une fonction statique
-         // TODO : "prototype", "length", "name", "arguments" et "caller" ne sont pas utilisables comme propriétés statiques
-         // TODO : vérifier que les propriétés soit cohérente avec le type de l'objet
+         // TODO : vï¿½rifier que "init" est une fonction statique
+         // TODO : "prototype", "length", "name", "arguments" et "caller" ne sont pas utilisables comme propriï¿½tï¿½s statiques
+         // TODO : vï¿½rifier que les propriï¿½tï¿½s soit cohï¿½rente avec le type de l'objet
 
          newDef = getNew$(oldDef);
 
-         // Vérifications dans le cas où on la classe hérite d'une autre classe
+         // Vï¿½rifications dans le cas oï¿½ on la classe hï¿½rite d'une autre classe
          if (newDef.extends !== undefined) {
             newDef.Public.$.extends = newDef.extends;
             newDef.extends          = Core.getObject(newDef.extends.$.id);
@@ -2539,8 +2767,8 @@ THE SOFTWARE.
 
             if (name != Constants.$ ) {
 
-               descriptor = Descriptor.convertDescriptor(name, oldDef); // Note : si le descripteur est déjà standard, il sera cloné
-               // A cette étape, descriptor est déjà scellé
+               descriptor = Descriptor.convertDescriptor(name, oldDef); // Note : si le descripteur est dï¿½jï¿½ standard, il sera clonï¿½
+               // A cette ï¿½tape, descriptor est dï¿½jï¿½ scellï¿½
 
                if (extend) {
 
@@ -2624,7 +2852,7 @@ THE SOFTWARE.
             return function (bcn) {
                // L'appel avec bcn est fait uniquement par la fonction
                // createDefinition : dans cette fonction, on va copier aussi
-               // l'environnement privé de la définition.
+               // l'environnement privï¿½ de la dï¿½finition.
                return cloneDefinition(me);
             };
          };
@@ -2747,11 +2975,11 @@ THE SOFTWARE.
          |                                      setParam
          |-----------------------------------------------------------------------------------------
          |
-         | Ajoute un paramètre à l'objet me de la définition.
+         | Ajoute un paramï¿½tre ï¿½ l'objet me de la dï¿½finition.
          |
          |-----------------------------------------------------------------------------------------
          | Arguments :
-         |   . object : l'objet à tester
+         |   . object : l'objet ï¿½ tester
          |
          |-----------------------------------------------------------------------------------------
          | Retour
@@ -2759,13 +2987,13 @@ THE SOFTWARE.
          |
          |-----------------------------------------------------------------------------------------
          | Exceptions :
-         |   . Errors.SealedObject : impossible de modifier un paramètre car la définition est
-         |     scellée.
+         |   . Errors.SealedObject : impossible de modifier un paramï¿½tre car la dï¿½finition est
+         |     scellï¿½e.
          |
          |-----------------------------------------------------------------------------------------
-         | Visibilité :
-         |   . Privée
-         | Cette fonction n'est utilisé que par les fonctions "set_*" des définitions.
+         | Visibilitï¿½ :
+         |   . Privï¿½e
+         | Cette fonction n'est utilisï¿½ que par les fonctions "set_*" des dï¿½finitions.
          |
          |---------------------------------------------------------------------------------------*/
          var setParam                  = function(name, value) {
@@ -2809,17 +3037,17 @@ THE SOFTWARE.
       |                                     valid$
       |-----------------------------------------------------------------------------------------
       |
-      | Valide l'attribut "define" de l'objet reçu en paramètre. Cette fonction est créée
-      | uniquement pour mieux découper la fonction convertDefinition.
+      | Valide l'attribut "define" de l'objet reï¿½u en paramï¿½tre. Cette fonction est crï¿½ï¿½e
+      | uniquement pour mieux dï¿½couper la fonction convertDefinition.
       |
       |-----------------------------------------------------------------------------------------
       | Arguments :
-      |   . object : l'objet à tester
+      |   . object : l'objet ï¿½ tester
       |
       |-----------------------------------------------------------------------------------------
       | Retour
-      |   . true  : l'objet a une propriété 'define' valide
-      |   . false : l'objet n'a pas une propriété 'define' valide
+      |   . true  : l'objet a une propriï¿½tï¿½ 'define' valide
+      |   . false : l'objet n'a pas une propriï¿½tï¿½ 'define' valide
       |
       |---------------------------------------------------------------------------------------*/
       var getNew$                 = function (object) {
@@ -2901,7 +3129,7 @@ THE SOFTWARE.
          };
 
          return false;
-		 
+
       };
 
       var isUsuableDefinition     = function (definition) {
@@ -2936,13 +3164,13 @@ THE SOFTWARE.
       |                               Fonction : sealDefinition
       |--------------------------------------------------------------------------------------------
       | Description :
-      |   Scèlle la définition reçue en paramètre.
-      |   Fonction à utiliser en interne uniquement. Aucun contrôle n'est fait sur les paramètres
-      | d'entrées uniquement.
+      |   Scï¿½lle la dï¿½finition reï¿½ue en paramï¿½tre.
+      |   Fonction ï¿½ utiliser en interne uniquement. Aucun contrï¿½le n'est fait sur les paramï¿½tres
+      | d'entrï¿½es uniquement.
       |--------------------------------------------------------------------------------------------
-      | Parmaètres
-      |   . definition : Définition à valider. La définition doit être ouverte
-      |   . whatFor    : Pour quel type d'usage on doit valider la définition. Valeurs acceptées :
+      | Parmaï¿½tres
+      |   . definition : Dï¿½finition ï¿½ valider. La dï¿½finition doit ï¿½tre ouverte
+      |   . whatFor    : Pour quel type d'usage on doit valider la dï¿½finition. Valeurs acceptï¿½es :
       |      . undefined
       |      . Constants.CLASS
       |      . Constants.INTERFACE
@@ -2972,10 +3200,10 @@ THE SOFTWARE.
             if (Descriptor.isDescriptor(definition.initialization))
                definition.initialization = definition.initialization.clone();
             else
-               definition.initialization = Public.Static.Method(definition.initialization);
+               definition.initialization = Descriptor.new().Static.Method(definition.initialization);
          }
 
-         // On vérifie ici que la définition public est modifiable
+         // On vï¿½rifie ici que la dï¿½finition public est modifiable
          for(property in definition.publicEnv) {
 
             p = jsObject.getOwnPropertyDescriptor(definition.publicEnv, property);
@@ -2985,15 +3213,15 @@ THE SOFTWARE.
             }
          }
 
-         /* Les derniers contrôles ont été effectués : maintenant
-          on scelle la définition. */
+         /* Les derniers contrï¿½les ont ï¿½tï¿½ effectuï¿½s : maintenant
+          on scelle la dï¿½finition. */
          definition.isSealed = true;
 
          // On ajoute les nouvelles description.
-         // Si la description existaient déjà, on vérifie qu'elle est compatible
-         // Note : bcn est valorisé uniquement lorsque l'on crée un clone pour étendre une définition.
-         // Dans ce cas, privateEnv, protectedEnv et publicEnv ne doivent pas contenir les définitions.
-         // Seul les environnements compilés doivent les contenir.
+         // Si la description existaient dï¿½jï¿½, on vï¿½rifie qu'elle est compatible
+         // Note : bcn est valorisï¿½ uniquement lorsque l'on crï¿½e un clone pour ï¿½tendre une dï¿½finition.
+         // Dans ce cas, privateEnv, protectedEnv et publicEnv ne doivent pas contenir les dï¿½finitions.
+         // Seul les environnements compilï¿½s doivent les contenir.
          for(name in definition.publicEnv) {
             if (name == '$') continue;
 
@@ -3020,13 +3248,13 @@ THE SOFTWARE.
       |                            public Object validateDefinition
       |--------------------------------------------------------------------------------------------
       | Description :
-      |   Valide la définition reçue en paramètre.
-      |   La fonction ne modifie pas la définition. Elle retourne une liste d'erreur, ou undefined
-      |   si aucune erreur n'a été trouvée.
+      |   Valide la dï¿½finition reï¿½ue en paramï¿½tre.
+      |   La fonction ne modifie pas la dï¿½finition. Elle retourne une liste d'erreur, ou undefined
+      |   si aucune erreur n'a ï¿½tï¿½ trouvï¿½e.
       |--------------------------------------------------------------------------------------------
-      | Parmaètres
-      |   . definition : Définition à valider. La définition doit être ouverte
-      |   . whatFor    : Pour quel type d'usage on doit valider la définition. Valeurs acceptées :
+      | Parmaï¿½tres
+      |   . definition : Dï¿½finition ï¿½ valider. La dï¿½finition doit ï¿½tre ouverte
+      |   . whatFor    : Pour quel type d'usage on doit valider la dï¿½finition. Valeurs acceptï¿½es :
       |      . undefined
       |      . Constants.CLASS
       |      . Constants.INTERFACE
@@ -3041,7 +3269,7 @@ THE SOFTWARE.
 
          errors     = { $ : {}};
 
-         // Vérification de l'objet étendu
+         // Vï¿½rification de l'objet ï¿½tendu
          if (definition.extends !== undefined) {
             if (!Class.isClass(definition.extends) && !Interface.isInterface(definition.extends))
                onerror(new Errors.InvalidDefinition('Extend object must be a Class or a Interface'));
@@ -3093,14 +3321,14 @@ THE SOFTWARE.
    |-----------------------------------------------------------------------------------------------
    | Description
    |
-   |    Ce package permet la création de descripteurs
+   |    Ce package permet la crï¿½ation de descripteurs
    |
    |-----------------------------------------------------------------------------------------------
-   | Création d'un descripteur
+   | Crï¿½ation d'un descripteur
    |
-   |    La création d'une définition est faite à partir de la fonction newDescriptor.
-   |    Cette fonction reçoit en paramètre :
-   |      . Soit un objet, qui correspond à la valeur du descripteur
+   |    La crï¿½ation d'une dï¿½finition est faite ï¿½ partir de la fonction newDescriptor.
+   |    Cette fonction reï¿½oit en paramï¿½tre :
+   |      . Soit un objet, qui correspond ï¿½ la valeur du descripteur
    |      . Soit un lien
    |
    |-----------------------------------------------------------------------------------------------
@@ -3109,12 +3337,12 @@ THE SOFTWARE.
    |  type :
    |     . 1 : attribut
    |     . 2 : variable
-   |     . 3 : méthode
+   |     . 3 : mï¿½thode
    |     . 4 : fonction
    |     . 6 : classe
    |
    |---------------------------------------------------------------------------------------------*/
-   var Descriptor            = (function () {
+   Descriptor            = (function () {
 
       var maxID                   = 0;
 
@@ -3122,22 +3350,22 @@ THE SOFTWARE.
       |                                   isDescriptor
       |-----------------------------------------------------------------------------------------
       | Description :
-      |   Vérifie si la propriété passée en paramètre est standard ou non.
-      |   Seule une propriété standard à accès à la variable interne Core.beacon.
-      |   On appel la fonction "checkStandard" de la propriété. Cette fonction retourne un id.
-      |   "checkStandard" à enregistré dans Core.beacon une référence d'elle même. Donc, il
-      |   ne reste plus qu'à comparer cette référence avec l'objet passé en paramètre de
-      |   isDescriptor. Normalement, ils sont les mêmes. Sinon, c'est que la propriété
+      |   Vï¿½rifie si la propriï¿½tï¿½ passï¿½e en paramï¿½tre est standard ou non.
+      |   Seule une propriï¿½tï¿½ standard ï¿½ accï¿½s ï¿½ la variable interne Core.beacon.
+      |   On appel la fonction "checkStandard" de la propriï¿½tï¿½. Cette fonction retourne un id.
+      |   "checkStandard" ï¿½ enregistrï¿½ dans Core.beacon une rï¿½fï¿½rence d'elle mï¿½me. Donc, il
+      |   ne reste plus qu'ï¿½ comparer cette rï¿½fï¿½rence avec l'objet passï¿½ en paramï¿½tre de
+      |   isDescriptor. Normalement, ils sont les mï¿½mes. Sinon, c'est que la propriï¿½tï¿½
       |   n'est pas standard.
       |
       |-----------------------------------------------------------------------------------------
       | Parametres :
-      |    . name       : Nom de l'attribut/méthode
-      |    . definition : Définition de l'attribut/méthode
+      |    . name       : Nom de l'attribut/mï¿½thode
+      |    . definition : Dï¿½finition de l'attribut/mï¿½thode
       |
       |-----------------------------------------------------------------------------------------
       | Retour :
-      |   Nouvelle définition, correspondant à la définition passée en paramètre convertie.
+      |   Nouvelle dï¿½finition, correspondant ï¿½ la dï¿½finition passï¿½e en paramï¿½tre convertie.
       |
       |-----------------------------------------------------------------------------------------
       | Exceptions :
@@ -3163,7 +3391,7 @@ THE SOFTWARE.
          catch(e) {
             return false;
          }
-         
+
          return true;
 
       };
@@ -3173,13 +3401,11 @@ THE SOFTWARE.
       var fct_Variable            = function ()    { this.setParam('Type'      ,    2); return this.Public;};
       var fct_Method              = function ()    { this.setParam('Type'      ,    3); return this.Public;};
       var fct_Function            = function ()    { this.setParam('Type'      ,    4); return this.Public;};
-      var fct_Class               = function ()    { this.setParam('Type'      ,    6); return this.Public;};
 
-      var fct_isAttribute         = function ()    { return this.Type===1||this.Type===2; };
-      var fct_isMethod            = function ()    { return this.Type===3||this.Type===4; };
-      var fct_isClass             = function ()    { return this.Type===6;                };
+      var fct_isAttribute         = function ()    { return this.Type===0 ? undefined : this.Type===1||this.Type===2; };
+      var fct_isMethod            = function ()    { return this.Type===0 ? undefined : this.Type===3||this.Type===4; };
 
-      // Visibilité
+      // Visibility
       var fct_Public              = function ()    { this.setParam('visibility',    1); return this.Public;};
       var fct_Protected           = function ()    { this.setParam('visibility',    2); return this.Public;};
       var fct_Private             = function ()    { this.setParam('visibility',    3); return this.Public;};
@@ -3188,7 +3414,7 @@ THE SOFTWARE.
       var fct_isProtected         = function ()    { return this.visibility === 2;        };
       var fct_isPrivate           = function ()    { return this.visibility === 3;        };
 
-      // Propriétés
+      // Properties
       var fct_Abstract            = function ()    { this.setParam('isAbstract', true); return this.Public;};
       var fct_Constant            = function ()    { this.setParam('isConstant', true); return this.Public;};
       var fct_Final               = function ()    { this.setParam('isFinal'   , true); return this.Public;};
@@ -3199,9 +3425,17 @@ THE SOFTWARE.
       var fct_isConstant          = function (val) { if (arguments.length > 0) { this.setParam('isConstant', !!val) ; return this.Public;} return this.isConstant; };
       var fct_isStatic            = function (val) { if (arguments.length > 0) { this.setParam('isStatic', val)     ; return this.Public;} return this.isStatic;   };
 
-      // Autres propriétés et fonctions
+      // Other properties and attributes
       var fct_isSealed            = function ()    { return this.isSealed;                };
-      var fct_set                 = function (val) { this.setParam('value'     ,  val); this.setParam('isValueSetted', true); return this.Public; };
+      var fct_set                 = function (val) {
+         this.setParam('value'     ,  val);
+         this.setParam('isValueSetted', true);
+         if (this.Type === 0) {
+            this.setParam('Type', typeof(val)==='function' ? 3 : 1);
+         }
+         return this.Public;
+      };
+
       var fct_isValueSetted       = function (val) { if (arguments.length > 0) { this.setParam('isValueSetted', val); } return this.isValueSetted;};
       var fct_toString            = function (hideValue)    {
          var chn;
@@ -3278,17 +3512,17 @@ THE SOFTWARE.
       |-----------------------------------------------------------------------------------------
       | Description :
       |   Compare deux descripteurs.
-      |   Tout les aspects sont testés.
+      |   Tout les aspects sont testï¿½s.
       |
       |-----------------------------------------------------------------------------------------
       | Parametres :
-      |    . Descriptor obj     : Descripteur à tester.
+      |    . Descriptor obj     : Descripteur ï¿½ tester.
       |    . boolean testValue  : Indique si oui (true) ou non (false) on doit aussi tester les
-      |                           valeurs. Défaut : true.
+      |                           valeurs. Dï¿½faut : true.
       |
       |-----------------------------------------------------------------------------------------
       | Retour :
-      |   Nouvelle définition, correspondant à la définition passée en paramètre convertie.
+      |   Nouvelle dï¿½finition, correspondant ï¿½ la dï¿½finition passï¿½e en paramï¿½tre convertie.
       |
       |-----------------------------------------------------------------------------------------
       | Exceptions :
@@ -3326,7 +3560,6 @@ THE SOFTWARE.
 
       var fct_clone               = function() {
          var desc           = createDescriptor(true);
-         desc.Class         = this.Class;
          desc.definitionOf  = this.definitionOf;
          desc.isConstant    = this.isConstant;
          desc.isFinal       = this.isFinal;
@@ -3370,21 +3603,21 @@ THE SOFTWARE.
       |                                   convertDescriptor
       |-----------------------------------------------------------------------------------------
       | Description :
-      |   Converti la définition d'un attribut ou d'une méthode au format standard.
-      |   Aucun contrôle n'est fait sur les valeurs.
+      |   Converti la dï¿½finition d'un attribut ou d'une mï¿½thode au format standard.
+      |   Aucun contrï¿½le n'est fait sur les valeurs.
       |
       |-----------------------------------------------------------------------------------------
       | Parametres :
-      |    . oldDesc : Description à convertir
+      |    . oldDesc : Description ï¿½ convertir
       |
       |-----------------------------------------------------------------------------------------
       | Retour :
       |    . Si oldDesc est un descripteur, alors on va retourner son clone.
-      |    . Sinon, on retourne un paramètre publique, non statique, dont le type dépend du type
+      |    . Sinon, on retourne un paramï¿½tre publique, non statique, dont le type dï¿½pend du type
       |      de oldDesc :
-      |      . Si oldDesc est une classe, alors on déclarera une classe
-      |      . si oldDesc est une fonction, alors on déclarera une méthode
-      |      . sinon, on déclare un attribut.
+      |      . Si oldDesc est une classe, alors on dï¿½clarera une classe
+      |      . si oldDesc est une fonction, alors on dï¿½clarera une mï¿½thode
+      |      . sinon, on dï¿½clare un attribut.
       |
       |-----------------------------------------------------------------------------------------
       | Exceptions :
@@ -3425,7 +3658,7 @@ THE SOFTWARE.
                     , property     : undefined
                     , isSealed     : false
                     , setParam     : fct_setParam
-                    , Type         : 1          // 1: Attribute, 2: Variable, 3:Method, 4:Function
+                    , Type         : 0          // 0: Non dÃ©fini, 1: Attribute, 2: Variable, 3:Method, 4:Function
                     , value        : undefined
                     , visibility   : 1
                     , id           : maxID++};        // 1: public, 2:protected, 3:private
@@ -3436,7 +3669,6 @@ THE SOFTWARE.
 
          dp(me.Public, 'Abstract'          , {get:fct_Abstract           .bind(me), set:function(val) {this.Abstract     ; set_bind(val);}, enumerable:true, configurable:false});
          dp(me.Public, 'Attribute'         , {get:fct_Attribute          .bind(me), set:function(val) {this.Attribute    ; set_bind(val);}, enumerable:true, configurable:false});
-         dp(me.Public, 'Class'             , {get:fct_Class              .bind(me), set:function(val) {this.Class        ; set_bind(val);}, enumerable:true, configurable:false});
          dp(me.Public, 'Clone'             , {get:fct_clone              .bind(me), set:function(val) {this.Clone        ; set_bind(val);}, enumerable:true, configurable:false});
          dp(me.Public, 'Constant'          , {get:fct_Constant           .bind(me), set:function(val) {this.Constant     ; set_bind(val);}, enumerable:true, configurable:false});
          dp(me.Public, 'Final'             , {get:fct_Final              .bind(me), set:function(val) {this.Final        ; set_bind(val);}, enumerable:true, configurable:false});
@@ -3454,7 +3686,6 @@ THE SOFTWARE.
          dp(me.Public, 'getValue'          , {value:fct_get              .bind(me), writable:false, enumerable:true});
          dp(me.Public, 'isAbstract'        , {value:fct_isAbstract       .bind(me), writable:false, enumerable:true});
          dp(me.Public, 'isAttribute'       , {value:fct_isAttribute      .bind(me), writable:false, enumerable:true});
-         dp(me.Public, 'isClass'           , {value:fct_isClass          .bind(me), writable:false, enumerable:true});
          dp(me.Public, 'isConstant'        , {value:fct_isConstant       .bind(me), writable:false, enumerable:true});
          dp(me.Public, 'isFinal'           , {value:fct_isFinal          .bind(me), writable:false, enumerable:true});
          dp(me.Public, 'isFunction'        , {value:fct_isMethod         .bind(me), writable:false, enumerable:true});
@@ -3504,21 +3735,22 @@ THE SOFTWARE.
              , new                : newDescriptor};
    })();
 
-   var Errors                = {
-        AccessViolation        : function(name)    { this.name=globalName+'.AccessViolation'       ; this.message='Try to access to a reserved function';                                  }
-      , InvalidDefinition      : function(message) { this.name=globalName+'.InvalidDefinition'     ; this.message = message;                                                              }
-      , InvalidContext         : function(message) { this.name=globalName+'.InvalidContext'        ; this.message = message;                                                              }
-      , DescriptorSealed       : function()        { this.name=globalName+'.DescriptorSealed'      ; this.message='Try to modify a sealed descriptor';                                     }
-      , ObjectIsNotExtendable  : function()        { this.name=globalName+'.ObjectIsNotExtendable' ; this.message='Object is not extandable (use Definition, Class, Interface or Package)';}
-      , ExtendAnFinalClass     : function()        { this.name=globalName+'.ExtendAnFinalClass'    ; this.message='Try to extend an finaled class';                                        }
-      , ExtendedProprertyError : function()        { this.name=globalName+'.ExtendedProprertyError';                                                                                      }
-      , OnParameterOnly        : function()        { this.name=globalName+'.OnParameterOnly'       ; this.message='Only one parameter accepted';                                          }
-      , ObjectIsNotAClass      : function()        { this.name=globalName+'.ObjectIsNotAClass'     ; this.message='Expected a class';                                                     }
-      , InvalidName            : function(n)       { this.name=globalName+'.InvalidName'           ; this.message='Not a valid name : '+n;                                             }
-      , InvalidType            : function(o)       { this.name=globalName+'.InvalidName'           ; this.message='Not a valid type'; this.object = o;                                    }
-      , NotInstanciableClass   : function(cl)      { this.name=globalName+'.NotInstanciableClass'  ; this.message='The class is not instanciable';                                        }
-      , NotAUniqueName         : function(n)       { this.name=globalName+'.NotAUniqueName'        ; this.message='The name is not unique : "'+n+'"';                                     }
-      , SealedObject           : function(object)  { this.name=globalName+'.SealedObject'          ; this.message='The object is sealed : it cannot be extended';                         }
+   Errors                = {
+        AccessViolation        : function(name)    { this.name=globalName+'.Errors.AccessViolation'       ; this.message='Try to access to a reserved function';                                  }
+      , InvalidDefinition      : function(message) { this.name=globalName+'.Errors.InvalidDefinition'     ; this.message = message;                                                               }
+      , InvalidContext         : function(message) { this.name=globalName+'.Errors.InvalidContext'        ; this.message = message;                                                               }
+      , DescriptorSealed       : function()        { this.name=globalName+'.Errors.DescriptorSealed'      ; this.message='Try to modify a sealed descriptor';                                     }
+      , ObjectIsNotExtendable  : function()        { this.name=globalName+'.Errors.ObjectIsNotExtendable' ; this.message='Object is not extandable (use Definition, Class, Interface or Package)';}
+      , ExtendAnFinalClass     : function()        { this.name=globalName+'.Errors.ExtendAnFinalClass'    ; this.message='Try to extend an finaled class';                                        }
+      , ExtendedProprertyError : function()        { this.name=globalName+'.Errors.ExtendedProprertyError';                                                                                       }
+      , OnParameterOnly        : function()        { this.name=globalName+'.Errors.OnParameterOnly'       ; this.message='Only one parameter accepted';                                           }
+      , ObjectIsNotAClass      : function()        { this.name=globalName+'.Errors.ObjectIsNotAClass'     ; this.message='Expected a class';                                                      }
+      , InvalidName            : function(n)       { this.name=globalName+'.Errors.InvalidName'           ; this.message='Not a valid name : '+n;                                                 }
+      , InvalidType            : function(o)       { this.name=globalName+'.Errors.InvalidName'           ; this.message='Not a valid type'; this.object = o;                                     }
+      , NotInstanciableClass   : function(cl)      { this.name=globalName+'.Errors.NotInstanciableClass'  ; this.message='The class is not instanciable';                                         }
+      , NotAUniqueName         : function(n)       { this.name=globalName+'.Errors.NotAUniqueName'        ; this.message='The name is not unique : "'+n+'"';                                      }
+      , SealedObject           : function(object)  { this.name=globalName+'.Errors.SealedObject'          ; this.message='The object is sealed : it cannot be extended';                          }
+      , NotSealablePackage     : function(pkg)     { this.name=globalName+'.Errors.NotSealablePackage'    ; this.message='The package is not sealable';                                           }
       , IncompatibleExtension  : function(name, desc1, desc2) {
          this.name='IncompatibleExtension' ;
          this.message='"'+name+'" property ('+desc1.toString(true)+') cant\'t be extend by a '+desc1.toString(true)+' property';
@@ -3527,7 +3759,7 @@ THE SOFTWARE.
       , $                      : {seal : true}
    };
 
-   var Interface             = (function() {
+   Interface             = (function() {
 
       var createInterface         = function(definition) {
 
@@ -3549,7 +3781,6 @@ THE SOFTWARE.
                           , id            : me.id
                           , implementedBy : fct.implementedBy(me)
                           , isCompatible  : fct.isCompatible(me)
-                          , Public        : me.Public
                           , type          : me.type
          };
 
@@ -3596,12 +3827,12 @@ THE SOFTWARE.
       |--------------------------------------------------------------------------------------------
       | Description
       |
-      |    Vérifie que la classe fournie en paramètre implémente l'interface.
+      |    Vï¿½rifie que la classe fournie en paramï¿½tre implï¿½mente l'interface.
       |
       |--------------------------------------------------------------------------------------------
-      | Paramètres
+      | Paramï¿½tres
       |
-      |   . obj : publicEnv de la classe dont on souhaite vérifier les implémenetations
+      |   . obj : publicEnv de la classe dont on souhaite vï¿½rifier les implï¿½menetations
       |   . me  : Me de l'interface
       |
       |------------------------------------------------------------------------------------------*/
@@ -3609,20 +3840,20 @@ THE SOFTWARE.
 
          var i, interfaces;
 
-         // On récupère la liste des interfaces
+         // On rï¿½cupï¿½re la liste des interfaces
          interfaces = obj.$.implements;
 
-         // Si aucune interfaces n'est implémentées, alors on retourne false
+         // Si aucune interfaces n'est implï¿½mentï¿½es, alors on retourne false
          if (interfaces === undefined)
             return false;
 
-         // On recherche notre interface parmis la liste des interfaces implémentées
+         // On recherche notre interface parmis la liste des interfaces implï¿½mentï¿½es
          for(i in interfaces) {
             if (interfaces[i] == me.publicEnv)
                return true;
          }
 
-         // Si on a rien trouvé, alors c'est que notre interface n'est pas implémentées
+         // Si on a rien trouvï¿½, alors c'est que notre interface n'est pas implï¿½mentï¿½es
          return false;
       };
 
@@ -3639,12 +3870,12 @@ THE SOFTWARE.
                if (descOBJ === undefined)
                   return false;
 
-               // Vérification sur la visibilité
-               // L'attribut ne peut-être privé
+               // Vï¿½rification sur la visibilitï¿½
+               // L'attribut ne peut-ï¿½tre privï¿½
                if (descOBJ.isPrivate())
                   return false;
 
-               // Les propriétés ITF protégés peuvent être implémenté par des propriétés publiques.*
+               // Les propriï¿½tï¿½s ITF protï¿½gï¿½s peuvent ï¿½tre implï¿½mentï¿½ par des propriï¿½tï¿½s publiques.*
                // L'inverse n'est pas possible.
                if (descOBJ.isProtected() && descITF.isPublic())
                   return false;
@@ -3674,13 +3905,13 @@ THE SOFTWARE.
          catch(e) {
             return false;
          }
-            
+
       };
 
       var newInterface            = function() {
          var definition, openDefinition;
 
-         // Valeurs par défaut
+         // Valeurs par dï¿½faut
          definition = { $ : { parent : undefined
                             , name   : undefined }};
 
@@ -3688,10 +3919,10 @@ THE SOFTWARE.
 
          openDefinition = Definition.new(definition, {$:{sealed:false}}).$._open(Core.beacon);
 
-         // On vérifie que la définition est valide pour une classe.
+         // On vï¿½rifie que la dï¿½finition est valide pour une classe.
          validateDefinition(openDefinition);
 
-         // On scelle la définition
+         // On scelle la dï¿½finition
          openDefinition.publicEnv.$.seal();
 
          return createInterface(openDefinition);
@@ -3745,7 +3976,7 @@ THE SOFTWARE.
 
    })();
 
-   var Namespace             = (function() {
+   Namespace             = (function() {
 
       var createNamespace         = function(definition) {
 
@@ -3776,14 +4007,14 @@ THE SOFTWARE.
                                                            , configurable : false});
 
 
-         // Ajout les membres de la définition au namespace
+         // Ajout les membres de la dï¿½finition au namespace
          for(name in definition) {
             if (name === '$') continue;
             addValue = false;
 
-            // Les descripteurs sont définis différement
+            // Les descripteurs sont dï¿½finis diffï¿½rement
             if (Descriptor.isDescriptor(definition[name])) {
-               //on ajoute simplement la valeur définie par le descripteur.
+               //on ajoute simplement la valeur dï¿½finie par le descripteur.
                addValue = true;
                value    = definition[name].getValue();
             }
@@ -3926,19 +4157,19 @@ THE SOFTWARE.
       |--------------------------------------------------------------------------------------------
       |
       | Description
-      | Valide la définition reçue en paramètre lors de la création du namespace.
+      | Valide la dï¿½finition reï¿½ue en paramï¿½tre lors de la crï¿½ation du namespace.
       |
       |--------------------------------------------------------------------------------------------
-      | Critères de validité
+      | Critï¿½res de validitï¿½
       |
-      |   . La définition doit être un objet ou une fonction
-      |   . Aucun élément "toString" ne doit être défini
-      |   . Aucun élément "$" ne doit être défini, ou doit être un objet.
-      |   . Si $ est défini :
-      |      . Si $.object est défini, alors ce doit être un objet ou une fonction.
-      |      . si $.global est défini, il faut que $.name le soit aussi.
-      |      . si $.global et $.name sont définis, il faut que globalThis[name] ne soit pas
-      |        définis, ou alors qu'il soit configurable et writable.
+      |   . La dï¿½finition doit ï¿½tre un objet ou une fonction
+      |   . Aucun ï¿½lï¿½ment "toString" ne doit ï¿½tre dï¿½fini
+      |   . Aucun ï¿½lï¿½ment "$" ne doit ï¿½tre dï¿½fini, ou doit ï¿½tre un objet.
+      |   . Si $ est dï¿½fini :
+      |      . Si $.object est dï¿½fini, alors ce doit ï¿½tre un objet ou une fonction.
+      |      . si $.global est dï¿½fini, il faut que $.name le soit aussi.
+      |      . si $.global et $.name sont dï¿½finis, il faut que globalThis[name] ne soit pas
+      |        dï¿½finis, ou alors qu'il soit configurable et writable.
       |
       |------------------------------------------------------------------------------------------*/
       var validateDefinition      = function(definition) {
@@ -3960,7 +4191,7 @@ THE SOFTWARE.
          if (definition.$ !== undefined) {
 
             if (definition.$.object !== undefined) {
-               // $.object doit être un objet ou une fonction
+               // $.object doit ï¿½tre un objet ou une fonction
                if (typeof(definition.$.object) !== 'object' && typeof(definition.$.object) !== 'function')
                   onerror(new Errors.InvalidDefinition('$.object must be an object or a function'));
 
@@ -3968,10 +4199,10 @@ THE SOFTWARE.
 
                   property = jsObject.getOwnPropertyDescriptor(definition.$.object, name);
 
-                  /* Si dans $.object il exite déjà un membre avec le même nom,
-                  on ne lèvera une exception que si ca valeur est différente de celle
-                  de la définition. Dans le cas d'un lien, alors on devra vérifier que
-                  les liens sont égaux */
+                  /* Si dans $.object il exite dï¿½jï¿½ un membre avec le mï¿½me nom,
+                  on ne lï¿½vera une exception que si ca valeur est diffï¿½rente de celle
+                  de la dï¿½finition. Dans le cas d'un lien, alors on devra vï¿½rifier que
+                  les liens sont ï¿½gaux */
                   if (property !== undefined) {
                      if (!property.configurable || !property.writable) {
                         if (definition[name] !== property.value)
@@ -4012,16 +4243,16 @@ THE SOFTWARE.
       | Valide le namespace
       |
       |--------------------------------------------------------------------------------------------
-      | Critères de validité
+      | Critï¿½res de validitï¿½
       |
-      |   . La définition doit être un objet ou une fonction
-      |   . Aucun élément "toString" ne doit être défini
-      |   . Aucun élément "$" ne doit être défini, ou doit être un objet.
-      |   . Si $ est défini :
-      |      . Si $.object est défini, alors ce doit être un objet ou une fonction.
-      |      . si $.global est défini, il faut que $.name le soit aussi.
-      |      . si $.global et $.name sont définis, il faut que globalThis[name] ne soit pas
-      |        définis, ou alors qu'il soit configurable et writable.
+      |   . La dï¿½finition doit ï¿½tre un objet ou une fonction
+      |   . Aucun ï¿½lï¿½ment "toString" ne doit ï¿½tre dï¿½fini
+      |   . Aucun ï¿½lï¿½ment "$" ne doit ï¿½tre dï¿½fini, ou doit ï¿½tre un objet.
+      |   . Si $ est dï¿½fini :
+      |      . Si $.object est dï¿½fini, alors ce doit ï¿½tre un objet ou une fonction.
+      |      . si $.global est dï¿½fini, il faut que $.name le soit aussi.
+      |      . si $.global et $.name sont dï¿½finis, il faut que globalThis[name] ne soit pas
+      |        dï¿½finis, ou alors qu'il soit configurable et writable.
       |
       |------------------------------------------------------------------------------------------*/
       var validateNamespace       = function(me) {
@@ -4041,7 +4272,7 @@ THE SOFTWARE.
 
          var definition, name;
 
-         // Valeurs par défaut
+         // Valeurs par dï¿½faut
          definition = { $ : { object : {}
                             , parent : globalThis
                             , name   : undefined
@@ -4049,13 +4280,13 @@ THE SOFTWARE.
 
          definition = Core.merge(arguments, definition);
 
-         // Les descripteurs sont clonés pour ne pas les modifier directement.
+         // Les descripteurs sont clonï¿½s pour ne pas les modifier directement.
          for(name in definition) {
             if (Descriptor.isDescriptor(definition[name]))
                definition[name] = definition[name].clone().seal();
          }
 
-         // On vérifie que la définition est valide pour un namespace.
+         // On vï¿½rifie que la dï¿½finition est valide pour un namespace.
          validateDefinition(definition);
 
          definition.$.parent = Descriptor.new().Public(definition.$.parent);
@@ -4076,15 +4307,18 @@ THE SOFTWARE.
 
    })();
 
-   var Package               = (function() {
+   Package               = (function() {
 
       var createPackage           = function(me) {
-         var env, id, listEnv, listAncestry, name, newFct, publicEnv, selfEnv, superEnv, thisEnv;
+         var env, id, listEnv, listAncestry, name, newFct, publicEnv, selfEnv, superEnv, thisEnv, packageMe;
          var parent;
 
-         me.isSealed         = true;
-         me.thisEnv          = Core.getThisEnv(me);
-         me._ProtectedReturn = fct._ProtectedReturn(me);
+         me.isSealed          = true;
+         me.thisEnv           = Core.getThisEnv(me);
+         me._ProtectedReturn  = fct._ProtectedReturn(me);
+         me.authorizationList = {};
+         
+         me.authorizationList[me.id] = 'private';
 
          me.thisEnv.$   = { _open         : me._ProtectedReturn
                           , _patteBlanche : me._patteBlanche
@@ -4105,33 +4339,31 @@ THE SOFTWARE.
                           , include              : true};
          listEnv        = [publicEnv];
 
-         me.authorizationList = {};
-
-         me.authorizationList[me.id] = 'private';
-
-         if (me.parent !== undefined) {
-            parent = me.parent.getValue();
-            if (Package.isPackage(parent)) {
-               if (parent.$.isSealed())
-                  me.authorizationList = parent.$._open(Core.beacon).authorizationList;
-            }
-         }
-
+         // Declaration of the elements of the package
          for(name in me.definition.objectEnv) {
 
             if (!me.definition.objectEnv[name].isPublic)
                delete(me.publicEnv[name]);
 
             if (Class.isClass(me.definition.objectEnv[name].value)) {
-               // Le parent déclaré de la classe doit être le package lui même
-               // sinon, on considère la classe comme indépendante
+               // The parent of the class must be the package itselfs (publicEnv)
+               // otherwise, the class is considered as independant.
                if (me.definition.objectEnv[name].value.$._open(Core.beacon).parent.getValue() === me.publicEnv) {
                   declareClass(me, name);
                   continue;
                }
             }
+            
             else if (isPackage(me.definition.objectEnv[name].value)) {
-               if (me.definition.objectEnv[name].value.$._open(Core.beacon).parent.getValue() === me.publicEnv) {
+               packageMe = me.definition.objectEnv[name].value.$._open(Core.beacon);
+               
+               // If the package parent is us, then we must associate him with us
+               if (packageMe.parent.getValue() === me.publicEnv) {
+
+                  // If the package is not sealed, then we sealed it
+                  if (!packageMe.isSealed)
+                     sealPackage(packageMe);
+
                   declarePackage(me, name);
                   continue;
                }
@@ -4146,9 +4378,8 @@ THE SOFTWARE.
          jsObject.defineProperty(me.thisEnv.$     , 'parent', { get : me.getPrivateParent });
          jsObject.defineProperty(me.thisEnv.$     , 'name'  , { get : me.getPrivateName   });
 
-         // On scèlle l'ensemble des environnements
          Core.sealEnv(me.thisEnv  , true, true);
-         Core.sealEnv(me.publicEnv, true, false); // "me.publicEnv.$" est déjà scellé
+         Core.sealEnv(me.publicEnv, true, false); // "me.publicEnv.$" is already sealed
 
          return me.publicEnv;
 
@@ -4158,18 +4389,18 @@ THE SOFTWARE.
 
          var classMe, desc;
 
-         desc                  = me.definition.objectEnv[name];
-         classMe               = desc.value.$._open(Core.beacon);
-         classMe.privateParent = me.thisEnv;
-         classMe.privateName   = name;
+         desc                      = me.definition.objectEnv[name];
+         classMe                   = desc.value.$._open(Core.beacon);
+         classMe.privateParent     = me.thisEnv;
+         classMe.privateName       = name;
+         
+         Core.mergeAuthorization(me.authorizationList, classMe.authorizationList);         
+         classMe.authorizationList = me.authorizationList;
 
          if (classMe.parent.isPublic()) {
             classMe.publicParent  = me.publicEnv;
             classMe.publicName    = name;
          }
-
-         Core.mergeAuthorization(me.authorizationList, classMe.authorizationList);
-         classMe.authorizationList = me.authorizationList;
 
          jsObject.defineProperty(me.thisEnv, name, { value        : classMe.thisEnv
                                                    , writable     : false
@@ -4194,14 +4425,14 @@ THE SOFTWARE.
          packageMe               = desc.value.$._open(Core.beacon);
          packageMe.privateParent = me.thisEnv;
          packageMe.privateName   = name;
+         
+         Core.mergeAuthorization(me.authorizationList, packageMe.authorizationList);         
+         packageMe.authorizationList = me.authorizationList;
 
          if (packageMe.parent.isPublic()) {
             packageMe.publicParent  = me.publicEnv;
             packageMe.publicName    = name;
          }
-
-         Core.mergeAuthorization(me.authorizationList, packageMe.authorizationList);
-         packageMe.authorizationList = me.authorizationList;
 
          jsObject.defineProperty(me.thisEnv, name, { value        : packageMe.thisEnv
                                                    , writable     : false
@@ -4216,6 +4447,9 @@ THE SOFTWARE.
          else
             delete(me.publicEnv[name]);
 
+         if (!packageMe.isSealed)
+            sealPackage(packageMe);
+
       };
 
       var fct                     = (function () {
@@ -4229,7 +4463,7 @@ THE SOFTWARE.
                if (me.isSealed)
                   return undefined;
 
-               // On vérifie qu'une propriété de même nom n'est pas fixée dans l'environnement publique
+               // On vï¿½rifie qu'une propriï¿½tï¿½ de mï¿½me nom n'est pas fixï¿½e dans l'environnement publique
                prop_public = jsObject.getOwnPropertyDescriptor(me.publicEnv, name);
                if (prop_public !== undefined) {
                   if (!prop_public.writable && !prop_public.configurable) {
@@ -4279,6 +4513,12 @@ THE SOFTWARE.
             };
 
          };
+         
+         var getDefinition             = function(me) {
+            return function() {
+               return me.definition;
+            };
+         };
 
          var isSealed                  = function(me) {
             return function() {
@@ -4286,33 +4526,36 @@ THE SOFTWARE.
             };
          };
 
-         var seal                      = function(me, definition) {
+         var isSealable                = function(me) {
             return function() {
-               var name, properties;
+               return isSealablePackage(me, {});
+            };
+         };
 
-               if (jsObject.isSealed(me.publicEnv) || jsObject.isFrozen(me.publicEnv))
-                  onerror(new Errors.InvalidDefinition());
-
-               me.definition = { $ : definition.$ };
-
-               for(name in me.publicEnv) {
-
-                  if (name === '$') continue;
-
-                  properties = jsObject.getOwnPropertyDescriptor(me.publicEnv, name);
-
-                  if ((!properties.writable || !properties.configurable) && !Class.isClass(me.publicEnv[name]))
-                     onerror(new Errors.InvalidDefinition());
-
-                  me.definition[name] = me.publicEnv[name];
-               }
-
-               me.definition.$.seal = true;
-               me.definition = Definition.new(me.definition).$._open(Core.beacon);
-               // On scelle la définition
-               me.definition.publicEnv.$.seal();
-
-               return createPackage(me);
+        /**
+         * Seal the package.
+         * @func seal
+         * @param {me} "Me" object of the package to seal
+         * @param {definition} definition of the package
+         * @memberof main.Package.fct
+         */
+         var seal                      = function(me) {
+            return function() {
+               var list;
+      
+               // If package already sealed, then return
+               if (me.isSealed)
+                  return undefined;
+      
+               list = {};
+      
+               if (!isSealablePackage(me, list)) {
+                  throw new Errors.NotSealablePackage();
+               };
+      
+               makeDefinition(me, {});
+               
+               sealPackage(me);
             };
          };
 
@@ -4335,6 +4578,8 @@ THE SOFTWARE.
          return { _ProtectedReturn : _ProtectedReturn
                 , add              : add
                 , isSealed         : isSealed
+                , isSealable       : isSealable
+                , getDefinition    : getDefinition
                 , seal             : seal
                 , toString         : toString};
       })();
@@ -4369,18 +4614,17 @@ THE SOFTWARE.
 
          var definition, desc, me, name, seal;
 
-         // Valeurs par défaut
+         // Default values
          definition = { $ : { seal   : true
                             , parent : undefined
                             , name   : undefined }};
 
+         // Merging the definition with the default values
          definition = Core.merge(arguments, definition);
 
-         // $.seal est n'est pas un attribut des définitions.
-         // Comme on crée un package, $.seal s'adresse donc au package.
-         seal = definition.$.seal === undefined ? true : !!definition.$.seal;
-
+         // Creation of "me" object
          me                  = { definition    : undefined
+                               , name          : definition.$.name
                                , privateParent : undefined
                                , publicParent  : undefined
                                , privateName   : undefined
@@ -4390,29 +4634,35 @@ THE SOFTWARE.
                                , type          : Constants.PACKAGE};
 
          me._patteBlanche    = Core.fct._patteBlanche(me);
-
          me.id               = Core.getNewId(me);
-
-         me.seal             = fct.seal(me, definition);
-
+         me.seal             = fct.seal(me);
          me.publicEnv.$      = { _open         : fct._ProtectedReturn(me)
                                , _patteBlanche : me._patteBlanche
-                               , definition    : undefined
                                , id            : me.id
                                , isSealed      : fct.isSealed(me)
+                               , isSealable    : fct.isSealable(me)
                                , name          : undefined
                                , Public        : true
                                , seal          : me.seal
                                , toString      : fct.toString(me.publicEnv, 'public')
                                , type          : me.type };
 
+         jsObject.defineProperty(me.publicEnv.$     , 'definition', { get : fct.getDefinition() });
+
          me.publicEnv.$._patteBlanche = me._patteBlanche;
 
-         me.name             = definition.$.name;
          if (definition.$.parent === undefined)
             me.parent           = Descriptor.new()(globalThis);
          else
             me.parent           = Descriptor.isDescriptor(definition.$.parent) ? definition.$.parent : Descriptor.new()(definition.$.parent);
+
+         // Si le parent est un package, alors on ne scÃ¨lle pas.
+         if (isPackage(me.parent.getValue()))
+            definition.$.seal = false;
+
+         // $.seal is not a definition attribute
+         // Has we create a package, seal refers then to the package
+         seal = definition.$.seal === undefined ? true : !!definition.$.seal;
 
          me.getPrivateParent = Core.fct.getValue(me, 'privateParent');
          me.getPublicParent  = Core.fct.getValue(me, 'publicParent');
@@ -4426,8 +4676,7 @@ THE SOFTWARE.
          if (me.name !== undefined)
             Core.declareToParent(me);
 
-         // Si le package ne doit pas être scellé (paramètre $.seal = false)
-         // alors on créer seulement le publicEnv
+         // If the package is not to seal, then we create only the public environment
          if (!seal) {
 
             for(name in definition) {
@@ -4435,7 +4684,7 @@ THE SOFTWARE.
                me.publicEnv[name] = definition[name];
             }
 
-            Core.sealEnv(me.publicEnv, false); // On scelle "$", mais pas le publicEnv qui changera par la suite.
+            Core.sealEnv(me.publicEnv, false); // Sealing "$", but not the public environment that will change after
             jsObject.preventExtensions(me.publicEnv);
 
             return me.publicEnv;
@@ -4444,10 +4693,181 @@ THE SOFTWARE.
          definition.$.seal = true;
          definition = Definition.new(definition).$._open(Core.beacon);
          me.definition  = definition;
-         // On scelle la définition
+         // Sealing definition
          definition.publicEnv.$.seal();
 
-         return createPackage(me);
+         return createPackage(me, {});
+      };
+
+      /**
+       * Determine weither or not the package is sealable.
+       * A Package is sealable if :
+       *    - It's already sealed
+       *    - Or each of his child package and his parent package respect the following rules :
+       *      - a parent package musn't be sealed
+       *      - and a child package musn't be sealed
+       * A child is detected as so if :
+       *    - he declare a package as a parent
+       *    - and has a valid name
+       *    - and in the parent package, the name is a descriptor, with no value
+       * @function isSealablePackage
+       * @memberof Core.Package
+       * @access private
+       */
+      var isSealablePackage            = function(me, liste) {
+
+         var properties, parent, pkg, name, desc,obj, value, cl;
+
+         if (me.isSealed)
+            return true;
+
+         if (liste[me.id] !== undefined)
+            return true;
+
+         liste[me.id] = me;
+
+         parent = me.parent.getValue(); // In "me" object
+
+         // Checking if we are well defined in the package parent
+         if (isPackage(parent)) {
+            if (parent.$.isSealed())
+               return false;
+
+            // The package must have been declared in the parent package.
+            // In the package parent, the declaration is an empty descriptor (public or private)
+            desc = parent[me.name];
+
+            if (!Descriptor.isDescriptor(desc))
+               return false;
+
+            if (desc.isProtected() || desc.isStatic() || (desc.getValue() !== undefined && desc.getValue() !== me.publicEnv))
+               return false;
+               
+            if (!isSealablePackage(Core.getMe(parent), liste))
+               return false;
+         };
+
+         // Checking all members
+         for(name in me.publicEnv) {
+            properties = jsObject.getOwnPropertyDescriptor(me.publicEnv, name);
+
+            if (!properties.writable || !properties.configurable || properties.get !== undefined ||properties.set !== undefined) {
+               return false
+            };
+
+            value = me.publicEnv[name];
+
+            if (Descriptor.isDescriptor(value)) {
+               if (value.isProtected() || value.isStatic())
+                  return false;
+               value = value.getValue();
+            };
+
+            if (isPackage(value)) {
+               if (!isSealablePackage(Core.getMe(value), liste)) {
+                  return false;
+               };
+            }
+            else if (Class.isClass(value)) {
+               cl = Core.getMe(value);
+               if (cl.parent === me.publicEnv) {
+                  if (me.publicEnv[cl.name] !== cl)
+                     return false;
+                  liste[cl.id] = cl;
+               };
+            };
+         };
+
+         return true;
+      };
+
+      var sealPackage                  = function(me) {
+         return createPackage(me, {});
+      };
+
+      var makeDefinition               = function(me, list) {
+
+         var definition, name;
+
+         if (list[me.id] !== undefined)
+            return;
+
+         list[me.id] = me;
+
+         definition = {};
+
+         for(name in me.publicEnv) {
+            definition[name] = Descriptor.isDescriptor(me.publicEnv[name]) ? me.publicEnv[name] : Descriptor.new().Public(me.publicEnv[name]);
+
+            if (isPackage(definition[name].getValue())) {
+               makeDefinition(Core.getMe(definition[name].getValue()), list);
+            };
+         };
+
+         
+         definition = Definition.new(definition).$._open(Core.beacon);
+         me.definition  = definition;
+         // Sealing definition
+         definition.publicEnv.$.seal();
+
+         if (me.parent !== undefined)
+            if (isPackage(me.parent.getValue()))
+               makeDefinition(Core.getMe(me.parent), list);
+      };
+
+      var getAuthorizationList = function (me, auth, first) {
+
+         var meObject;
+
+         first = first === undefined ? true : first;
+
+         if (auth[me.id] !== undefined)
+            return true;
+
+         auth[me.id] = {object:me.publicEnv, visibility:'private'};
+
+         // Sealing or frozing the public environment is illegal
+         if (jsObject.isSealed(me.publicEnv) || jsObject.isFrozen(me.publicEnv))
+            onerror(new Errors.InvalidDefinition());
+
+         for(name in me.publicEnv) {
+
+            if (name === '$') continue;
+
+            properties = jsObject.getOwnPropertyDescriptor(me.publicEnv, name);
+
+
+            if ((!properties.writable || !properties.configurable) && !Class.isClass(me.publicEnv[name]))
+               onerror(new Errors.InvalidDefinition());
+
+            if (Class.isClass(me.publicEnv[name])) {
+               if(me.publicEnv[name].$.parent === me.publicEnv) {
+                  auth[me.id] = {me:Core.getMe(me.publicEnv[name]), visibility:'private'};
+               };
+            };
+
+            // Package authorization will be added only if the parent package is us
+            if (isPackage(me.publicEnv[name])) {
+
+               meObject   = Core.getMe(me.publicEnv[name]);
+
+               if (meObject.parent === me.publicEnv) {
+                  if (meObject.isSealed)
+                     getAuthorizationList(Core.getMe(me.publicEnv[name]), auth, false);
+                  else
+                     auth[me.id] = {object:me.publicEnv[name], visibility:'private'};
+               }
+            };
+
+            me.definition[name] = me.publicEnv[name];
+
+         };
+
+         if (!first)
+            return;
+
+
+
       };
 
       var maxID                        = 0;
@@ -4461,8 +4881,31 @@ THE SOFTWARE.
 
    })();
 
-   var jsObject = Core.secureObject();
-   var publicEnv;
+   jsObject = Core.secureObject();
+   publicEnv;
+
+   /**
+   * Version of JsPackage
+   * @variable version
+   * @type string
+   * @memberof main
+   **/
+   Version           = Class.new({
+        major    : Descriptor.new().Private
+      , minor    : Descriptor.new().Private
+      , revision : Descriptor.new().Private
+      , $ : { initialization : function(major, minor, revision) {
+            this.major    = major;
+            this.minor    = minor;
+            this.revision = revision;
+         }}
+      , getMajor    : function() { return this.major    }
+      , getMinor    : function() { return this.minor    }
+      , getRevision : function() { return this.revision }
+      , toString    : function() { return '' + this.major + '.'+this.minor + '.' + this.revision }
+   });
+   
+   version = new Version(0, 5, 1);
 
    Core.initialize();
 
@@ -4470,7 +4913,6 @@ THE SOFTWARE.
     , name              : 'JsPackage'
     , debug             : true
     , onerror           : function(error) {
-		"use strict";
         throw error;
       }
    });
