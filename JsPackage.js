@@ -116,7 +116,9 @@ THE SOFTWARE.
    onerror           = parameters.onerror;
 
    if (debugMode) {
-      console.log('JsPackage : ' + globalName + ' in debugMode');
+      if (console !== undefined) {
+         console.log('JsPackage : ' + globalName + ' in debugMode');
+      };
    }
 
    /**
@@ -447,10 +449,10 @@ THE SOFTWARE.
 
          /**
          * Initialization function of the class
-         * @member {function} new
+         * @member {function} New
          * @memberof main.Class.ClassMe
          */
-         me.new                      = newFct;
+         me.New                      = newFct;
          /**
          * Public environment of the class
          * @member {Class} publicEnv
@@ -566,6 +568,15 @@ THE SOFTWARE.
                          , true);                     // isStatic
          }
 
+         // Adding all constant members of the definition in the class
+         for(name in me.definition.constantEnv) {
+            Core.declare ( definition.constantEnv[name] // descriptor
+                         , name                       // name
+                         , me.thisEnv                 // thisEnv
+                         , listProperties             // listEnv
+                         , true);                     // isStatic
+         }
+
          /**
          * @class
          * @name Class$
@@ -630,12 +641,12 @@ THE SOFTWARE.
                                   */
                               , getAncestry        : me.getAncestry
                                 /** Function that create a new instance. In public/protected environment, this function is usable only if the class is publicly instanciable.
-                                  * @see {@link main.Class.ClassMe.new}
+                                  * @see {@link main.Class.ClassMe.New}
                                   * @method new
                                   * @returns {Instance}
                                   * @memberof Class$
                                   */
-                              , new                : me.new
+                              , New                : me.New
                                 /** Determine if the class is a parent class of the Class.
                                   * @see {@link main.Class.ClassMe.parentOf|ClassMe.parentOf}
                                   * @method parentOf
@@ -664,7 +675,7 @@ THE SOFTWARE.
                                   * @access Protected
                                   */
                               , Super              : me.superEnv
-                              , this               : true
+                              , This               : true
                                 /** toString function of the class
                                   * @see {@link main.Class.ClassMe.toString|ClassMe.toString}
                                   * @method {Class} toString
@@ -689,11 +700,11 @@ THE SOFTWARE.
                               , isAbstract         : fct.isAbstract(me)
                               , isFinal            : fct.isFinal(me)
                               , getAncestry        : me.getAncestry
-                              , new                : publicInitialization
+                              , New                : publicInitialization
                               , parentOf           : me.parentOf
                               , Public             : me.publicEnv
                               , Super              : me.superEnv
-                              , this               : false
+                              , This               : false
                               , toString           : fct.ClassToString(me.thisEnv, 'super')
                               , type               : me.type};
 
@@ -708,7 +719,7 @@ THE SOFTWARE.
                               , isAbstract         : fct.isAbstract(me)
                               , isFinal            : fct.isFinal(me)
                               , getAncestry        : me.getAncestry
-                              , new                : publicInitialization
+                              , New                : publicInitialization
                               , parentOf           : me.parentOf
                               , Public             : me.publicEnv
                               , toString           : fct.ClassToString(me.publicEnv, 'public')
@@ -724,7 +735,7 @@ THE SOFTWARE.
                               , isAbstract         : fct.isAbstract(me)
                               , isFinal            : fct.isFinal(me)
                               , getAncestry        : me.getAncestry
-                              , new                : fct.getNewObject(me)
+                              , New                : fct.getNewObject(me)
                               , parentOf           : me.parentOf
                               , Public             : me.publicEnv
                               , Super              : me.superEnv
@@ -765,15 +776,15 @@ THE SOFTWARE.
 
          if (me.definition.initialization !== undefined) {
 
-            me.thisEnv.$.new                 = me.new;
-            me.selfEnv.$.new                 = me.selfEnv.$.new;
+            me.thisEnv.$.New                 = me.New;
+            me.selfEnv.$.New                 = me.selfEnv.$.New;
 
             if (me.definition.initialization.isPublic()) {
-               me.publicEnv.$.new            = me.new;
+               me.publicEnv.$.New            = me.New;
             }
          }
          else {
-            me.publicEnv.$.new = me.new;
+            me.publicEnv.$.New = me.New;
          }
 
          if (me.name !== undefined)
@@ -967,7 +978,7 @@ THE SOFTWARE.
          selfEnv.addPrivate = true;
          thisEnv.addPrivate = true;
 
-         // D�claration des attributs et des m�thodes statiques
+         // Declaration of static attributs and methods
          for(name in me.definition.staticEnv) {
             /* Note : les descriptor ont d�j� tous �t� d�finis (dans createClass).
             thisEnv n'a donc pas de sens ici.*/
@@ -978,9 +989,20 @@ THE SOFTWARE.
                          , true);                        // isStatic
          }
 
+         // Declaration of constants
+         for(name in me.definition.constantEnv) {
+            /* Note : les descriptor ont d�j� tous �t� d�finis (dans createClass).
+            thisEnv n'a donc pas de sens ici.*/
+            Core.declare ( me.definition.constantEnv[name] // descriptor
+                         , name                          // name
+                         , {}                            // thisEnv
+                         , listEnv                       // listEnv
+                         , true);                        // isStatic
+         }
+
          thisEnv.include    = false;
 
-         // D�claration des attributs et m�thodes
+         // Declaration of instance attributs and methods
          for(name in me.definition.objectEnv) {
             Core.declare ( me.definition.objectEnv[name]// descriptor
                          , name                         // name
@@ -998,7 +1020,7 @@ THE SOFTWARE.
                            , Public         : me.publicEnv
                            , Self           : me.selfEnv
                            , Super          : me.superMe !== undefined ? me.superMe.protectedEnv : undefined
-                           , this           : true
+                           , This           : true
                            , type           : me.type};
 
          me.selfEnv.$    = { _patteBlanche  : Core.fct._patteBlanche(me)
@@ -1101,12 +1123,12 @@ THE SOFTWARE.
                           , isAbstract    : classMe.thisEnv.$.isAbstract
                           , isFinal       : classMe.thisEnv.$.isFinal
                           , getAncestry   : classMe.thisEnv.$.getAncestry
-                          , new           : classMe.thisEnv.$.new
+                          , New           : classMe.thisEnv.$.New
                           , parentOf      : classMe.parentOf
                           , Public        : classMe.thisEnv.$.Public
                           , Self          : classMe.thisEnv.$.Self
                           , Super         : classMe.thisEnv.$.Super
-                          , this          : classMe.thisEnv.$.this
+                          , This          : classMe.thisEnv.$.This
                           , toString      : Core.fct.toString(me)
                           , type          : classMe.thisEnv.$.type };
 
@@ -1138,6 +1160,17 @@ THE SOFTWARE.
                Si on surcharge une m�thode de thisEnv, selfEnv ne doit pas changer
             */
             Core.declare ( me.definition.staticEnv[name] // descriptor
+                         , name                          // name
+                         , me.thisEnv                    // thisEnv
+                         , listEnv                       // listEnv
+                         , true);                        // isStatic
+         }
+
+         for(name in me.definition.constantEnv) {
+            /* Note : thisEnv et selfEnv sont ind�pendant dans les classes parentes :
+               Si on surcharge une m�thode de thisEnv, selfEnv ne doit pas changer
+            */
+            Core.declare ( me.definition.constantEnv[name] // descriptor
                          , name                          // name
                          , me.thisEnv                    // thisEnv
                          , listEnv                       // listEnv
@@ -1234,11 +1267,22 @@ THE SOFTWARE.
 
          selfEnv.addPrivate   = true;
 
-         // Ajouts des propri�t�s statiques
+         // Adding static properties
          for(name in me.definition.staticEnv) {
             /* Note : les descriptor ont d�j� tous �t� d�finis (dans createClass).
             thisEnv n'a donc pas de sens ici.*/
             Core.declare ( me.definition.staticEnv[name]   // descriptor
+                         , name                            // name
+                         , {}                              // thisEnv
+                         , listEnv                         // listEnv
+                         , true);                          // isStatic
+         }
+
+         // Adding constant properties
+         for(name in me.definition.constantEnv) {
+            /* Note : les descriptor ont d�j� tous �t� d�finis (dans createClass).
+            thisEnv n'a donc pas de sens ici.*/
+            Core.declare ( me.definition.constantEnv[name]   // descriptor
                          , name                            // name
                          , {}                              // thisEnv
                          , listEnv                         // listEnv
@@ -1263,7 +1307,7 @@ THE SOFTWARE.
                              , Public         : parentMe.publicEnv
                              , Self           : me.selfEnv
                              , Super          : me.superMe !== undefined ? me.superMe.protectedEnv : undefined
-                             , this           : true
+                             , This           : true
                              , type           : me.type};
 
          me.selfEnv.$      = { Class          : me.Class
@@ -1573,19 +1617,19 @@ THE SOFTWARE.
 
          var definition;
 
-         // Valeurs par d�faut
+         // Merging the definition with default values of $ object
          definition = { $ : { toSeal : true
-                              , parent : undefined
+                            , parent : undefined
                             , name   : undefined }};
 
          definition = Core.merge(arguments, definition);
 
-         definition = Definition.new(definition, {$:{sealed:false}}).$._open(Core.beacon);
+         definition = Definition.New(definition, {$:{sealed:false}}).$._open(Core.beacon);
 
-         // On v�rifie que la d�finition est valide pour une classe.
+         // Checking that the defined is valid for a class
          validateDefinition(definition);
 
-         // On scelle la d�finition
+         // Sealing definition
          definition.publicEnv.$.seal();
 
          return createClass(definition);
@@ -1600,7 +1644,7 @@ THE SOFTWARE.
       |
       |--------------------------------------------------------------------------------------------
       | Param�tres :
-      |   . definition : d�finition, ouverte, � valider.
+      |   . definition : définition, ouverte, à valider.
       |
       |------------------------------------------------------------------------------------------*/
       var validateDefinition      = function (definition) {
@@ -1618,12 +1662,14 @@ THE SOFTWARE.
             if (name === '$') continue;
             desc = definition.publicEnv[name];
             if (Descriptor.isDescriptor(desc)) {
-               if (desc.isConstant() && !desc.isStatic()) {
-                  onerror(new Errors.InvalidDefinition('Constant attribute must be static'));
-               }
-
                if (!definition.isAbstract && desc.isMethod() && !desc.isValueSetted())
                   onerror(new Errors.InvalidDefinition('No function define for the method : '+name));
+                  
+               if (desc.isConstant() && parent !== undefined) {
+                  if (parent.definition.constantEnv[name] !== undefined)
+                     throw new Errors.InvalidDefinition('Constants can\'t be extended');
+               };
+                  
             }
          }
 
@@ -1633,9 +1679,9 @@ THE SOFTWARE.
       var maxID                   = 0;
 
       newClass.isClass = isClass;
-      newClass.new     = newClass;
+      newClass.New     = newClass;
 
-      return { new                : newClass
+      return { New                : newClass
              , isClass            : isClass
              , namespace          : newClass
              , validateDefinition : validateDefinition
@@ -1777,7 +1823,7 @@ THE SOFTWARE.
          parent = me.parent;
 
          if (me.parent === undefined) {
-            desc   = Descriptor.new();
+            desc   = Descriptor.New();
             parent = globalThis;
          }
          else {
@@ -2083,14 +2129,14 @@ THE SOFTWARE.
       var initializeGlobalThis    = function (env) {
 
          // Descripteurs
-         jsObject.defineProperty(env, 'Public'    , { get   : function () {return Descriptor.new().Public;    }});
-         jsObject.defineProperty(env, 'Protected' , { get   : function () {return Descriptor.new().Protected; }});
-         jsObject.defineProperty(env, 'Private'   , { get   : function () {return Descriptor.new().Private;   }});
-         jsObject.defineProperty(env, 'Static'    , { get   : function () {return Descriptor.new().Static;    }});
-         jsObject.defineProperty(env, 'Constant'  , { get   : function () {return Descriptor.new().Constant;  }});
-         jsObject.defineProperty(env, 'Attribute' , { get   : function () {return Descriptor.new().Attribute; }});
-         jsObject.defineProperty(env, 'Method'    , { get   : function () {return Descriptor.new().Method;    }});
-         jsObject.defineProperty(env, 'Final'     , { get   : function () {return Descriptor.new().Final;     }});
+         jsObject.defineProperty(env, 'Public'    , { get   : function () {return Descriptor.New().Public;    }});
+         jsObject.defineProperty(env, 'Protected' , { get   : function () {return Descriptor.New().Protected; }});
+         jsObject.defineProperty(env, 'Private'   , { get   : function () {return Descriptor.New().Private;   }});
+         jsObject.defineProperty(env, 'Static'    , { get   : function () {return Descriptor.New().Static;    }});
+         jsObject.defineProperty(env, 'Constant'  , { get   : function () {return Descriptor.New().Constant;  }});
+         jsObject.defineProperty(env, 'Attribute' , { get   : function () {return Descriptor.New().Attribute; }});
+         jsObject.defineProperty(env, 'Method'    , { get   : function () {return Descriptor.New().Method;    }});
+         jsObject.defineProperty(env, 'Final'     , { get   : function () {return Descriptor.New().Final;     }});
 
       };
 
@@ -2098,37 +2144,37 @@ THE SOFTWARE.
 
          var token;
 
-         Class.namespace      = Namespace.new({ $ : { global      : true
+         Class.namespace      = Namespace.New({ $ : { global      : true
                                                     , name        : 'Class'
                                                     , object      : Class.namespace
                                                     , seal        : false
                                                     , sealable    : false}});
 
-         Definition.namespace = Namespace.new({ $ : { global      : true
+         Definition.namespace = Namespace.New({ $ : { global      : true
                                                     , name        : 'Definition'
                                                     , object      : Definition.namespace
                                                     , seal        : false
                                                     , sealable    : false}});
 
-         Descriptor.namespace = Namespace.new({ $ : { global      : true
+         Descriptor.namespace = Namespace.New({ $ : { global      : true
                                                     , name        : 'Descriptor'
                                                     , object      : Descriptor.namespace
                                                     , seal        : false
                                                     , sealable    : false}});
 
-         Interface.namespace  = Namespace.new({ $ : { global      : true
+         Interface.namespace  = Namespace.New({ $ : { global      : true
                                                     , name        : 'Interface'
                                                     , object      : Interface.namespace
                                                     , seal        : false
                                                     , sealable    : false}});
 
-         Namespace.namespace  = Namespace.new({ $ : { global      : true
+         Namespace.namespace  = Namespace.New({ $ : { global      : true
                                                     , name        : 'Namespace'
                                                     , object      : Namespace.namespace
                                                     , seal        : false
                                                     , sealable    : false}});
 
-         Package.namespace    = Namespace.new({ $ : { global      : true
+         Package.namespace    = Namespace.New({ $ : { global      : true
                                                     , name        : 'Package'
                                                     , object      : Package.namespace
                                                     , seal        : false
@@ -2136,15 +2182,15 @@ THE SOFTWARE.
 
          token = {};
 
-         publicEnv = Namespace.new({ // Constructeurs
-                                     Class             : Descriptor.new().set(Class.namespace     )
-                                   , Definition        : Descriptor.new().set(Definition.namespace)
-                                   , Descriptor        : Descriptor.new().set(Descriptor.namespace)
-                                   , Interface         : Descriptor.new().set(Interface.namespace )
-                                   , Namespace         : Descriptor.new().set(Namespace.namespace )
-                                   , Package           : Descriptor.new().set(Package.namespace   )
+         publicEnv = Namespace.New({ // Constructeurs
+                                     Class             : Descriptor.New().set(Class.namespace     )
+                                   , Definition        : Descriptor.New().set(Definition.namespace)
+                                   , Descriptor        : Descriptor.New().set(Descriptor.namespace)
+                                   , Interface         : Descriptor.New().set(Interface.namespace )
+                                   , Namespace         : Descriptor.New().set(Namespace.namespace )
+                                   , Package           : Descriptor.New().set(Package.namespace   )
                                      // Constantes et listes
-                                   , errors            : Namespace.new(Errors)
+                                   , errors            : Namespace.New(Errors)
                                    , Object            : jsObject
                                    , globalContext     : globalThis
                                    , version           : version
@@ -2587,6 +2633,7 @@ THE SOFTWARE.
                                       , objectEnv     : {}
                                       , publicEnv     : {}
                                       , staticEnv     : {}
+                                      , constantEnv   : {}
                                       , setParam      : fct.setParam
                                       , type          : Constants.DEFINITION
                                       , toString      : function() {return 'Definition : me';}};
@@ -2606,8 +2653,10 @@ THE SOFTWARE.
 
          // Ajouts des propri�t�s
          for(name in objectDefinition) {
-            if (name !== '$')
-               me.publicEnv[name] = objectDefinition[name];
+            if (name === '$') continue;
+
+            me.publicEnv[name] = objectDefinition[name];
+
          }
 
          // Ajout des param�tres de cr�ation.
@@ -2649,7 +2698,7 @@ THE SOFTWARE.
             me.publicEnv.$.parent = desc;
          }
 
-         // V�rification du param�tre : implements
+         // verifiying the parameter : implements
          if (me.publicEnv.$.implements !== undefined) {
 
             if (!(me.publicEnv.$.implements instanceof Array))
@@ -2765,73 +2814,72 @@ THE SOFTWARE.
 
          for(name in oldDef) {
 
-            if (name != Constants.$ ) {
+            if (name === Constants.$) continue;
 
-               descriptor = Descriptor.convertDescriptor(name, oldDef); // Note : si le descripteur est d�j� standard, il sera clon�
-               // A cette �tape, descriptor est d�j� scell�
+            descriptor = Descriptor.convertDescriptor(name, oldDef); // Note : si le descripteur est d�j� standard, il sera clon�
+            // A cette �tape, descriptor est d�j� scell�
 
-               if (extend) {
+            if (extend) {
 
-                  extendedProperty = undefined;
+               extendedProperty = undefined;
 
-                  if (extendDefinition.Static[name] !== undefined) {
-                     extendedProperty = extendDefinition.Static[name];
+               if (extendDefinition.Static[name] !== undefined) {
+                  extendedProperty = extendDefinition.Static[name];
+               }
+               else if (extendDefinition.Object[name] !== undefined) {
+                  extendedProperty = extendDefinition.Object[name];
+               }
+
+               if (extendedProperty !== undefined) {
+
+                  if (extendedProperty.isFinal())
+                     onerror(new Errors.finalPropertyExtended());
+
+                  if (descriptor.isStatic() != extendedProperty.isStatic()) {
+                     onerror(new Errors.ExtendedProprertyError());
                   }
-                  else if (extendDefinition.Object[name] !== undefined) {
-                     extendedProperty = extendDefinition.Object[name];
+
+                  if (descriptor.isMethod() != extendedProperty.isMethod()) {
+                     onerror(new Errors.ExtendedProprertyError());
                   }
 
-                  if (extendedProperty !== undefined) {
+                  if (descriptor.isAttribute() != extendedProperty.isAttribute()) {
+                     onerror(new Errors.ExtendedProprertyError());
+                  }
 
-                     if (extendedProperty.isFinal())
-                        onerror(new Errors.finalPropertyExtended());
+                  if (descriptor.isClass() != extendedProperty.isClass()) {
+                     onerror(new Errors.ExtendedProprertyError());
+                  }
 
-                     if (descriptor.isStatic() != extendedProperty.isStatic()) {
-                        onerror(new Errors.ExtendedProprertyError());
-                     }
+                  if (descriptor.isPrivate() != extendedProperty.isPrivate()) {
+                     onerror(new Errors.ExtendedProprertyError());
+                  }
 
-                     if (descriptor.isMethod() != extendedProperty.isMethod()) {
-                        onerror(new Errors.ExtendedProprertyError());
-                     }
+                  if (descriptor.isProtected() != extendedProperty.isProtected()) {
+                     onerror(new Errors.ExtendedProprertyError());
+                  }
 
-                     if (descriptor.isAttribute() != extendedProperty.isAttribute()) {
-                        onerror(new Errors.ExtendedProprertyError());
-                     }
+                  if (descriptor.isPublic() != extendedProperty.isPublic()) {
+                     onerror(new Errors.ExtendedProprertyError());
+                  }
 
-                     if (descriptor.isClass() != extendedProperty.isClass()) {
-                        onerror(new Errors.ExtendedProprertyError());
-                     }
-
-                     if (descriptor.isPrivate() != extendedProperty.isPrivate()) {
-                        onerror(new Errors.ExtendedProprertyError());
-                     }
-
-                     if (descriptor.isProtected() != extendedProperty.isProtected()) {
-                        onerror(new Errors.ExtendedProprertyError());
-                     }
-
-                     if (descriptor.isPublic() != extendedProperty.isPublic()) {
-                        onerror(new Errors.ExtendedProprertyError());
-                     }
-
-                     if (descriptor.isConstant() != extendedProperty.isConstant()) {
-                        onerror(new Errors.ExtendedProprertyError());
-                     }
-
+                  if (descriptor.isConstant() != extendedProperty.isConstant()) {
+                     onerror(new Errors.ExtendedProprertyError());
                   }
 
                }
 
-               newDef.All[name] = descriptor;
-
-               if (descriptor.isStatic())
-                  newDef.Static[name] = descriptor;
-               else
-                  newDef.Object[name] = descriptor;
-
-               if (descriptor.isPublic())
-                  newDef.Public[name] = descriptor;
             }
+
+            newDef.All[name] = descriptor;
+
+            if (descriptor.isStatic())
+               newDef.Static[name] = descriptor;
+            else
+               newDef.Object[name] = descriptor;
+
+            if (descriptor.isPublic())
+               newDef.Public[name] = descriptor;
          }
 
          return newDef;
@@ -3200,7 +3248,7 @@ THE SOFTWARE.
             if (Descriptor.isDescriptor(definition.initialization))
                definition.initialization = definition.initialization.clone();
             else
-               definition.initialization = Descriptor.new().Static.Method(definition.initialization);
+               definition.initialization = Descriptor.New().Static.Method(definition.initialization);
          }
 
          // On v�rifie ici que la d�finition public est modifiable
@@ -3229,6 +3277,8 @@ THE SOFTWARE.
 
             if (desc.isStatic())
                definition.staticEnv[name]        = desc._open(Core.beacon);
+            else if (desc.isConstant())
+               definition.constantEnv[name]      = desc._open(Core.beacon);
             else
                definition.objectEnv[name]        = desc._open(Core.beacon);
 
@@ -3305,13 +3355,13 @@ THE SOFTWARE.
       newDefinition.validateDefinition = validateDefinition_public;
       newDefinition.convertDefinition  = convertDefinition;
       newDefinition.isDefinition       = isDefinition;
-      newDefinition.new                = newDefinition;
+      newDefinition.New                = newDefinition;
       newDefinition.$                  = 'Definition';
 
       return { convertDefinition   : convertDefinition
              , isDefinition        : isDefinition
              , isUsuableDefinition : isUsuableDefinition
-             , new                 : newDefinition
+             , New                 : newDefinition
              , namespace           : newDefinition};
 
    })();
@@ -3726,13 +3776,13 @@ THE SOFTWARE.
 
       newDescriptor.convert       = convertDescriptor;
       newDescriptor.isDescriptor  = isDescriptor;
-      newDescriptor.new           = newDescriptor;
+      newDescriptor.New           = newDescriptor;
       newDescriptor.$             = 'Descriptor';
 
       return { convertDescriptor  : convertDescriptor
              , isDescriptor       : isDescriptor
              , namespace          : newDescriptor
-             , new                : newDescriptor};
+             , New                : newDescriptor};
    })();
 
    Errors                = {
@@ -3754,7 +3804,6 @@ THE SOFTWARE.
       , IncompatibleExtension  : function(name, desc1, desc2) {
          this.name='IncompatibleExtension' ;
          this.message='"'+name+'" property ('+desc1.toString(true)+') cant\'t be extend by a '+desc1.toString(true)+' property';
-         console.log(this.message);
          }
       , $                      : {seal : true}
    };
@@ -3917,7 +3966,7 @@ THE SOFTWARE.
 
          definition = Core.merge(arguments, definition);
 
-         openDefinition = Definition.new(definition, {$:{sealed:false}}).$._open(Core.beacon);
+         openDefinition = Definition.New(definition, {$:{sealed:false}}).$._open(Core.beacon);
 
          // On v�rifie que la d�finition est valide pour une classe.
          validateDefinition(openDefinition);
@@ -3966,11 +4015,11 @@ THE SOFTWARE.
       };
 
       newInterface.isInterface    = isInterface;
-      newInterface.new            = newInterface;
+      newInterface.New            = newInterface;
       newInterface.$              = 'Interface';
 
       return { isInterface        : isInterface
-             , new                : newInterface
+             , New                : newInterface
              , validateDefinition : validateDefinition
              , namespace          : newInterface};
 
@@ -4289,7 +4338,7 @@ THE SOFTWARE.
          // On v�rifie que la d�finition est valide pour un namespace.
          validateDefinition(definition);
 
-         definition.$.parent = Descriptor.new().Public(definition.$.parent);
+         definition.$.parent = Descriptor.New().Public(definition.$.parent);
 
          return createNamespace(definition);
 
@@ -4298,10 +4347,10 @@ THE SOFTWARE.
       var uniqueNames             = {};
 
       newNamespace.isNamespace = isNamespace;
-      newNamespace.new         = newNamespace;
+      newNamespace.New         = newNamespace;
       newNamespace.$           = {};
 
-      return { new         : newNamespace
+      return { New         : newNamespace
              , isNamespace : isNamespace
              , namespace   : newNamespace};
 
@@ -4317,7 +4366,7 @@ THE SOFTWARE.
          me.thisEnv           = Core.getThisEnv(me);
          me._ProtectedReturn  = fct._ProtectedReturn(me);
          me.authorizationList = {};
-         
+
          me.authorizationList[me.id] = 'private';
 
          me.thisEnv.$   = { _open         : me._ProtectedReturn
@@ -4328,7 +4377,7 @@ THE SOFTWARE.
                           , name          : me.definition.name
                           , Public        : me.publicEnv
                           , seal          : me.seal
-                          , this          : true
+                          , This          : true
                           , toString      : fct.toString(me.publicEnv, 'private')
                           , type          : me.type};
 
@@ -4353,10 +4402,10 @@ THE SOFTWARE.
                   continue;
                }
             }
-            
+
             else if (isPackage(me.definition.objectEnv[name].value)) {
                packageMe = me.definition.objectEnv[name].value.$._open(Core.beacon);
-               
+
                // If the package parent is us, then we must associate him with us
                if (packageMe.parent.getValue() === me.publicEnv) {
 
@@ -4369,6 +4418,19 @@ THE SOFTWARE.
                }
             }
             Core.declare ( me.definition.objectEnv[name] // descriptor
+                         , name                          // name
+                         , me.thisEnv                    // thisEnv
+                         , listEnv                       // listEnv
+                         , false);                       // isStatic
+         }
+
+         // Declaration of the constants of the package
+         for(name in me.definition.constantEnv) {
+
+            if (!me.definition.constantEnv[name].isPublic)
+               delete(me.publicEnv[name]);
+
+            Core.declare ( me.definition.constantEnv[name] // descriptor
                          , name                          // name
                          , me.thisEnv                    // thisEnv
                          , listEnv                       // listEnv
@@ -4393,8 +4455,8 @@ THE SOFTWARE.
          classMe                   = desc.value.$._open(Core.beacon);
          classMe.privateParent     = me.thisEnv;
          classMe.privateName       = name;
-         
-         Core.mergeAuthorization(me.authorizationList, classMe.authorizationList);         
+
+         Core.mergeAuthorization(me.authorizationList, classMe.authorizationList);
          classMe.authorizationList = me.authorizationList;
 
          if (classMe.parent.isPublic()) {
@@ -4425,8 +4487,8 @@ THE SOFTWARE.
          packageMe               = desc.value.$._open(Core.beacon);
          packageMe.privateParent = me.thisEnv;
          packageMe.privateName   = name;
-         
-         Core.mergeAuthorization(me.authorizationList, packageMe.authorizationList);         
+
+         Core.mergeAuthorization(me.authorizationList, packageMe.authorizationList);
          packageMe.authorizationList = me.authorizationList;
 
          if (packageMe.parent.isPublic()) {
@@ -4513,7 +4575,7 @@ THE SOFTWARE.
             };
 
          };
-         
+
          var getDefinition             = function(me) {
             return function() {
                return me.definition;
@@ -4542,19 +4604,19 @@ THE SOFTWARE.
          var seal                      = function(me) {
             return function() {
                var list;
-      
+
                // If package already sealed, then return
                if (me.isSealed)
                   return undefined;
-      
+
                list = {};
-      
+
                if (!isSealablePackage(me, list)) {
                   throw new Errors.NotSealablePackage();
                };
-      
+
                makeDefinition(me, {});
-               
+
                sealPackage(me);
             };
          };
@@ -4652,9 +4714,9 @@ THE SOFTWARE.
          me.publicEnv.$._patteBlanche = me._patteBlanche;
 
          if (definition.$.parent === undefined)
-            me.parent           = Descriptor.new()(globalThis);
+            me.parent           = Descriptor.New()(globalThis);
          else
-            me.parent           = Descriptor.isDescriptor(definition.$.parent) ? definition.$.parent : Descriptor.new()(definition.$.parent);
+            me.parent           = Descriptor.isDescriptor(definition.$.parent) ? definition.$.parent : Descriptor.New()(definition.$.parent);
 
          // Si le parent est un package, alors on ne scèlle pas.
          if (isPackage(me.parent.getValue()))
@@ -4691,7 +4753,7 @@ THE SOFTWARE.
          }
 
          definition.$.seal = true;
-         definition = Definition.new(definition).$._open(Core.beacon);
+         definition = Definition.New(definition).$._open(Core.beacon);
          me.definition  = definition;
          // Sealing definition
          definition.publicEnv.$.seal();
@@ -4742,7 +4804,7 @@ THE SOFTWARE.
 
             if (desc.isProtected() || desc.isStatic() || (desc.getValue() !== undefined && desc.getValue() !== me.publicEnv))
                return false;
-               
+
             if (!isSealablePackage(Core.getMe(parent), liste))
                return false;
          };
@@ -4797,15 +4859,15 @@ THE SOFTWARE.
          definition = {};
 
          for(name in me.publicEnv) {
-            definition[name] = Descriptor.isDescriptor(me.publicEnv[name]) ? me.publicEnv[name] : Descriptor.new().Public(me.publicEnv[name]);
+            definition[name] = Descriptor.isDescriptor(me.publicEnv[name]) ? me.publicEnv[name] : Descriptor.New().Public(me.publicEnv[name]);
 
             if (isPackage(definition[name].getValue())) {
                makeDefinition(Core.getMe(definition[name].getValue()), list);
             };
          };
 
-         
-         definition = Definition.new(definition).$._open(Core.beacon);
+
+         definition = Definition.New(definition).$._open(Core.beacon);
          me.definition  = definition;
          // Sealing definition
          definition.publicEnv.$.seal();
@@ -4872,11 +4934,11 @@ THE SOFTWARE.
 
       var maxID                        = 0;
       newPackage.isPackage             = isPackage;
-      newPackage.new                   = newPackage;
+      newPackage.New                   = newPackage;
       newPackage.$                     = 'Package';
 
       return { isPackage : isPackage
-             , new       : newPackage
+             , New       : newPackage
              , namespace : newPackage};
 
    })();
@@ -4890,26 +4952,41 @@ THE SOFTWARE.
    * @type string
    * @memberof main
    **/
-   Version           = Class.new({
-        major    : Descriptor.new().Private
-      , minor    : Descriptor.new().Private
-      , revision : Descriptor.new().Private
-      , $ : { initialization : function(major, minor, revision) {
-            this.major    = major;
-            this.minor    = minor;
-            this.revision = revision;
+
+   Constants.VERSION_STATUS = { DEVELOPMENT      : 'DEVELOPMENT'
+                              , ALPHA            : 'ALPHA'
+                              , BETA             : 'BETA'
+                              , RELEASE_CANDIDAT : 'RELEASE CANDIDAT'
+                              , STABLE           : 'STABLE'};
+
+   jsObject.seal(Constants.VERSION_STATUS);
+
+   Version           = Class.New({
+        major      : Descriptor.New().Private
+      , minor      : Descriptor.New().Private
+      , moduleName : Descriptor.New().Private
+      , revision   : Descriptor.New().Private
+      , status     : Descriptor.New().Private
+      , STATUS     : Descriptor.New().Constant.Public(Constants.VERSION_STATUS)
+      , $ : { initialization : function(moduleName, major, minor, revision) {
+            this.major      = major;
+            this.minor      = minor;
+            this.revision   = revision;
+            this.moduleName = moduleName;
          }}
-      , getMajor    : function() { return this.major    }
-      , getMinor    : function() { return this.minor    }
-      , getRevision : function() { return this.revision }
-      , toString    : function() { return '' + this.major + '.'+this.minor + '.' + this.revision }
+      , getMajor      : Descriptor.New().Method.Final(function() { return this.major      })
+      , getModuleName : Descriptor.New().Method.Final(function() { return this.moduleName })
+      , getMinor      : Descriptor.New().Method.Final(function() { return this.minor      })
+      , getRevision   : Descriptor.New().Method.Final(function() { return this.revision   })
+      , getStatus     : Descriptor.New().Method.Final(function() { return this.status     })
+      , toString      : Descriptor.New().Method.Final(function() { return this.moduleName + ' v' + this.major + '.' + this.minor + ' (rev. ' + this.revision + ')' })
    });
-   
-   version = new Version(0, 5, 1);
+
+   version = new Version('JSPACKAGE', 0, 5, 1);
 
    Core.initialize();
 
-})( { parent            : this.window === undefined ? global : this
+})( { parent            : this
     , name              : 'JsPackage'
     , debug             : true
     , onerror           : function(error) {
